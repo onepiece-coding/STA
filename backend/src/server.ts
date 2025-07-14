@@ -1,10 +1,10 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config'
 
+import connectToDB from './config/connectToDb.js';
 import app from './app.js';
-import logger from './utils/logger';
-import connectToDB from './config/connectToDb';
 import mongoose from 'mongoose';
+import logger from './utils/logger.js';
+import { seedAdminAccount } from './services/seedAdminAccount.js';
 
 // Global error handlers
 process.on("uncaughtException", err => {
@@ -20,6 +20,8 @@ process.on("unhandledRejection", err => {
 const PORT = process.env.PORT ?? 4000;
 
 await connectToDB();
+
+await seedAdminAccount()
 
 const server = app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
