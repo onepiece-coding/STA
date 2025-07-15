@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import asyncHandler from 'express-async-handler';
-import createError from "http-errors";
+import createError from 'http-errors';
 import Category from '../models/Category.js';
 
 /**-----------------------------------
@@ -9,12 +9,16 @@ import Category from '../models/Category.js';
  * @method POST
  * @access private(admin)
 --------------------------------------*/
-export const createCategoryCtrl = asyncHandler(async (req:Request, res:Response, next:NextFunction):Promise<void> => {
-  let cat = await Category.findOne({ name: req.body.name });
-  if (cat) throw createError(409, "Category already exist");
-  cat = await Category.create(req.body);
-  res.status(201).json(cat);
-})
+export const createCategoryCtrl = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    let cat = await Category.findOne({
+      name: { $regex: `^${req.body.name}$`, $options: 'i' },
+    });
+    if (cat) throw createError(409, 'Category already exist');
+    cat = await Category.create(req.body);
+    res.status(201).json(cat);
+  },
+);
 
 /**-----------------------------------
  * @desc   Get Category
@@ -22,10 +26,12 @@ export const createCategoryCtrl = asyncHandler(async (req:Request, res:Response,
  * @method POST
  * @access private(admin)
 --------------------------------------*/
-export const getCategoryCtrl = asyncHandler(async (req:Request, res:Response, next:NextFunction):Promise<void> => {
-  const list = await Category.find();
-  res.status(200).json(list);
-})
+export const getCategoryCtrl = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const list = await Category.find();
+    res.status(200).json(list);
+  },
+);
 
 /**-----------------------------------
  * @desc   Delete Category
@@ -33,8 +39,10 @@ export const getCategoryCtrl = asyncHandler(async (req:Request, res:Response, ne
  * @method DELETE
  * @access private(admin)
 --------------------------------------*/
-export const deleteCategoryCtrl = asyncHandler(async (req:Request, res:Response, next:NextFunction):Promise<void> => {
-  const category = await Category.findByIdAndDelete(req.params.id);
-  if(!category) throw createError(404, "Category not found");
-  res.status(200).json({ message: "Category deleted successfully" });
-})
+export const deleteCategoryCtrl = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const category = await Category.findByIdAndDelete(req.params.id);
+    if (!category) throw createError(404, 'Category not found');
+    res.status(200).json({ message: 'Category deleted successfully' });
+  },
+);

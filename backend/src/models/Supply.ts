@@ -10,15 +10,15 @@ export interface ISupply extends Document {
 
 const supplySchema = new Schema<ISupply>(
   {
-    productId:   { type: Schema.Types.ObjectId, ref: 'Product', required: true },
-    supplyDate:  { type: Date,   required: true },
-    quantity:    { type: Number, required: true },
-    remainingQty:{ type: Number, required: true },
-    expiringAt:  { type: Date,   required: true },
+    productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    supplyDate: { type: Date, required: true },
+    quantity: { type: Number, required: true },
+    remainingQty: { type: Number, required: true },
+    expiringAt: { type: Date, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-supplySchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 365 });
+supplySchema.index({ createdAt: 1 }, { expireAfterSeconds: 15552000 });
 
 export default model<ISupply>('Supply', supplySchema);

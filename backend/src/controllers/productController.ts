@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import createError from "http-errors";
+import createError from 'http-errors';
 import Product from '../models/Product.js';
 import {
   cloudinaryUploadImage,
-  cloudinaryRemoveImage
+  cloudinaryRemoveImage,
 } from '../utils/cloudinary.js';
-
 
 interface MulterReq extends Request {
   file?: Express.Multer.File;
@@ -20,15 +19,22 @@ interface MulterReq extends Request {
 --------------------------------------*/
 export const createProductCtrl = asyncHandler(
   async (req: MulterReq, res: Response) => {
-    let prod = await Product.findOne({ name: req.body.name });
-    if (prod) throw createError(409, "Product already exist");
+    let prod = await Product.findOne({
+      name: { $regex: `^${req.body.name}$`, $options: 'i' },
+    });
+    if (prod) throw createError(409, 'Product already exist');
     if (req.file) {
-      const uploadRes = await cloudinaryUploadImage(req.file.buffer, { folder: 'products' });
-      req.body.pictureUrl = { url: uploadRes.secure_url, publicId: uploadRes.public_id };
+      const uploadRes = await cloudinaryUploadImage(req.file.buffer, {
+        folder: 'products',
+      });
+      req.body.pictureUrl = {
+        url: uploadRes.secure_url,
+        publicId: uploadRes.public_id,
+      };
     }
     prod = await Product.create(req.body);
     res.status(201).json(prod);
-  }
+  },
 );
 
 /**-----------------------------------
@@ -64,10 +70,10 @@ export const getProductsCtrl = asyncHandler(
         total,
         page,
         limit,
-        totalPages
-      }
+        totalPages,
+      },
     });
-  }
+  },
 );
 
 /**
@@ -75,52 +81,55 @@ export const getProductsCtrl = asyncHandler(
  * @route   GET /api/v1/products/:id
  * @access  private
  */
-export const getProductByIdCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const getProductByIdCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
 
-  const product = await Product.findById(id)
-    .populate('categoryId', 'name')
-    .lean();
+    const product = await Product.findById(id)
+      .populate('categoryId', 'name')
+      .lean();
 
-  if (!product) {
-    throw createError(404, 'Product not found');
-  }
+    if (!product) {
+      throw createError(404, 'Product not found');
+    }
 
-  res.status(200).json(product);
-});
+    res.status(200).json(product);
+  },
+);
 
 /**
  * @desc    List all products with a global discount
  * @route   GET /api/v1/products/discounts
  * @access  private(admin, seller)
  */
-export const getDiscountedProductsCtrl = asyncHandler(async (req: Request, res: Response) => {
-  // Pagination
-  const page  = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-  const limit = Math.max(1, parseInt(req.query.limit as string, 10) || 10);
-  const skip  = (page - 1) * limit;
+export const getDiscountedProductsCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    // Pagination
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit as string, 10) || 10);
+    const skip = (page - 1) * limit;
 
-  // Only products where globalDiscountPercent > 0
-  const filter = { globalDiscountPercent: { $gt: 0 } };
+    // Only products where globalDiscountPercent > 0
+    const filter = { globalDiscountPercent: { $gt: 0 } };
 
-  // Total count
-  const total = await Product.countDocuments(filter);
+    // Total count
+    const total = await Product.countDocuments(filter);
 
-  // Fetch page, including category name
-  const data = await Product.find(filter)
-    .populate('categoryId', 'name')
-    .skip(skip)
-    .limit(limit)
-    .lean();
+    // Fetch page, including category name
+    const data = await Product.find(filter)
+      .populate('categoryId', 'name')
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-  const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit);
 
-  res.status(200).json({
-    data,
-    meta: { total, page, limit, totalPages }
-  });
-});
-
+    res.status(200).json({
+      data,
+      meta: { total, page, limit, totalPages },
+    });
+  },
+);
 
 /**--------------------------------------
  * @desc    Update Product
@@ -140,28 +149,30 @@ export const updateProductCtrl = asyncHandler(
         await cloudinaryRemoveImage(prod.pictureUrl.publicId);
       }
       const uploadRes = await cloudinaryUploadImage(req.file.buffer, {
-        folder: 'products'
+        folder: 'products',
       });
       prod.pictureUrl = {
         url: uploadRes.secure_url,
-        publicId: uploadRes.public_id
+        publicId: uploadRes.public_id,
       };
     }
 
     const updates: Partial<typeof prod> = {};
-    const { name, categoryId, unitPrice, discountRule, globalDiscountPercent } = req.body;
+    const { name, categoryId, unitPrice, discountRule, globalDiscountPercent } =
+      req.body;
     if (name) updates.name = name;
     if (categoryId) updates.categoryId = categoryId;
     if (unitPrice) updates.unitPrice = unitPrice;
     if (discountRule) updates.discountRule = discountRule;
-    if (globalDiscountPercent) updates.globalDiscountPercent = globalDiscountPercent;
+    if (globalDiscountPercent)
+      updates.globalDiscountPercent = globalDiscountPercent;
     if (req.file) {
       updates.pictureUrl = prod.pictureUrl;
     }
 
     const updated = await Product.findByIdAndUpdate(id, updates, { new: true });
     res.status(200).json(updated);
-  }
+  },
 );
 
 /**
@@ -195,12 +206,14 @@ export const manualAdjustCtrl = asyncHandler(async (req, res) => {
  * @method DELETE
  * @access private(admin)
 --------------------------------------*/
-export const deleteProductCtrl = asyncHandler(async (req:Request, res:Response):Promise<void> => {
-  const product = await Product.findById(req.params.id);
-  if(!product) throw createError(404, "Product not found");
-  if (product.pictureUrl?.publicId) {
-    await cloudinaryRemoveImage(product.pictureUrl.publicId);
-  }
-  await Product.findByIdAndDelete(req.params.id);
-  res.status(200).json({ message: "Product deleted successfully" });
-})
+export const deleteProductCtrl = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const product = await Product.findById(req.params.id);
+    if (!product) throw createError(404, 'Product not found');
+    if (product.pictureUrl?.publicId) {
+      await cloudinaryRemoveImage(product.pictureUrl.publicId);
+    }
+    await Product.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Product deleted successfully' });
+  },
+);

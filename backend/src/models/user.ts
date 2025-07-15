@@ -6,23 +6,30 @@ export interface IUser extends Document {
   password: string;
   role: 'admin' | 'seller' | 'delivery';
   // seller only:
-  sectors?: Types.ObjectId[];       // list of Sector IDs
+  sectors?: Types.ObjectId[]; // list of Sector IDs
   // delivery only:
-  seller?: Types.ObjectId;          // parent Seller
+  seller?: Types.ObjectId; // parent Seller
   deliverySectors?: Types.ObjectId[]; // subset of that seller’s sectors
   canInstantSales?: boolean;
   comparePassword(candidate: string): Promise<boolean>;
 }
 
-const userSchema = new Schema<IUser>({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ['admin','seller','delivery'], required: true },
-  sectors: [{ type: Schema.Types.ObjectId, ref: 'Sector' }],        // for sellers
-  seller: { type: Schema.Types.ObjectId, ref: 'User' },            // for delivery men
-  deliverySectors: [{ type: Schema.Types.ObjectId, ref: 'Sector' }],    // for delivery men
-  canInstantSales: { type: Boolean, default: false }                    // for delivery men
-}, { timestamps: true });
+const userSchema = new Schema<IUser>(
+  {
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ['admin', 'seller', 'delivery'],
+      required: true,
+    },
+    sectors: [{ type: Schema.Types.ObjectId, ref: 'Sector' }], // for sellers
+    seller: { type: Schema.Types.ObjectId, ref: 'User' }, // for delivery men
+    deliverySectors: [{ type: Schema.Types.ObjectId, ref: 'Sector' }], // for delivery men
+    canInstantSales: { type: Boolean, default: false }, // for delivery men
+  },
+  { timestamps: true },
+);
 
 // Hash password before save
 userSchema.pre('save', async function (next) {
