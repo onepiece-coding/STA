@@ -7,10 +7,14 @@ export const validateCreateCity = [
   (req: Request, _res: Response, next: NextFunction) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return next(createError(400, 'Validation failed', { errors: errs.array() }));
+      return next(
+        createError(400, `Validation failed: ${errs.array()[0].msg}`, {
+          errors: errs.array(),
+        }),
+      );
     }
     next();
-  }
+  },
 ];
 
 export const validateCreateSector = [
@@ -19,8 +23,12 @@ export const validateCreateSector = [
   (req: Request, _res: Response, next: NextFunction) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return next(createError(400, 'Validation failed', { errors: errs.array() }));
+      return next(
+        createError(400, `Validation failed: ${errs.array()[0].msg}`, {
+          errors: errs.array(),
+        }),
+      );
     }
     next();
-  }
+  },
 ];

@@ -21,8 +21,12 @@ export const validateStats = [
   (req: Request, _res: Response, next: NextFunction) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) {
-      return next(createError(400, 'Invalid query parameters', { errors: errs.array() }));
+      return next(
+        createError(400, `Invalid query parameters: ${errs.array()[0].msg}`, {
+          errors: errs.array(),
+        }),
+      );
     }
     next();
-  }
+  },
 ];

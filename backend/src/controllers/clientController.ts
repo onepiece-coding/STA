@@ -128,10 +128,15 @@ export const createClientCtrl = asyncHandler(
 export const getClientsCtrl = asyncHandler(
   async (req: Request, res: Response) => {
     const user = req.user!;
-    const { sectorId, cityId } = req.query as {
-      sectorId?: string;
-      cityId?: string;
-    };
+
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const sectorId = req.query.sectorId as string | undefined;
+    const cityId = req.query.cityId as string | undefined;
+
+    if (!sectorId && !cityId) {
+      throw createError(400, 'Please enter a sector or a city');
+    }
 
     // 1) Base filter by role
     const filter: any = {};
@@ -139,8 +144,6 @@ export const getClientsCtrl = asyncHandler(
       filter.seller = user._id;
     } else if (user.role === 'delivery') {
       filter.deliveryMan = user._id;
-    } else {
-      // Admins might see all clients
     }
 
     // 2) Filter by specific sector
@@ -155,14 +158,29 @@ export const getClientsCtrl = asyncHandler(
       filter.sector = { $in: sectorIds };
     }
 
+    const total = await Client.countDocuments(filter);
+
     // 4) Fetch & populate
-    const clients = await Client.find(filter)
+    const data = await Client.find(filter)
       .populate('sector', 'name')
       .populate('seller', 'username')
       .populate('deliveryMan', 'username')
+      .populate('city', 'name')
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
-    res.status(200).json(clients);
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    });
   },
 );
 
@@ -189,6 +207,7 @@ export const getClientByIdCtrl = asyncHandler(
       .populate('sector', 'name')
       .populate('seller', 'username')
       .populate('deliveryMan', 'username')
+      .populate('city', 'name')
       .lean();
 
     if (!client) {

@@ -24,8 +24,12 @@ export const validateAddBulkSupply: Array<ValidationChain | RequestHandler> = [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       // `errors.array()` gives [{ msg, param, location, ... }, …]
-      return next(createError(400, 'Validation failed', { errors: errors.array() }));
+      return next(
+        createError(400, `Validation failed: ${errors.array()[0].msg}`, {
+          errors: errors.array(),
+        }),
+      );
     }
     next();
-  }
+  },
 ];
