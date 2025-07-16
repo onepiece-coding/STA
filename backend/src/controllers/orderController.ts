@@ -3,21 +3,48 @@ import asyncHandler from 'express-async-handler';
 import createError from 'http-errors';
 import Order from '../models/Order.js';
 import Client from '../models/Client.js';
+import Product from '../models/Product.js';
+
+interface OrderItemDto {
+  productId: string;
+  quantity: number;
+}
+
+interface CreateOrderDto {
+  clientId:   string;
+  wantedDate: string;
+  items:      OrderItemDto[];
+}
 
 /**
  * @desc   Delivery creates a new order for a client
  * @route  POST /api/v1/orders
  * @access private(delivery)
  */
-export const createOrderCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const deliveryMan = req.user!._id;
+export const createOrderCtrl = asyncHandler(async (req: Request<{}, {}, CreateOrderDto>, res: Response) => {
+  const deliveryMan = req.user!._id.toString();
   const { clientId, items, wantedDate } = req.body;
 
-  // 1) Ensure the client is assigned to this deliveryMan
   const client = await Client.findOne({ _id: clientId, deliveryMan });
   if (!client) throw createError(404, 'Client not found or not yours');
 
-  // 2) Build & save
+  const productIds = items.map(i => i.productId);
+    const products   = await Product.find({ _id: { $in: productIds } });
+    const prodMap    = new Map(products.map(p => [p.id, p]));
+
+    for (let it of items) {
+      const p = prodMap.get(it.productId);
+      if (!p) {
+        throw createError(404, `Product ${it.productId} not found`);
+      }
+      if (p.currentStock < it.quantity) {
+        throw createError(
+          400,
+          `Insufficient stock for product "${p.name}" (have ${p.currentStock}, want ${it.quantity})`
+        );
+      }
+    }
+
   const order = await Order.create({
     deliveryMan,
     seller: client.seller,
@@ -119,17 +146,14 @@ export const updateOrderCtrl = asyncHandler(async (req: Request, res: Response) 
   }
 
   // 3) Apply allowed updates
-  //  - delivery can change items, wantedDate, status
-  //  - seller can only change status (e.g. to 'inProgress' or 'done')
-  if (req.body.items && user.role === 'delivery') {
-    order.items = req.body.items;
-  }
+  //  - delivery can change wantedDate, status
+  //  - seller can only change status (e.g. to 'cancelled' or 'done')
   if (req.body.wantedDate && user.role === 'delivery') {
     order.wantedDate = new Date(req.body.wantedDate);
   }
   if (req.body.status) {
     // both roles may update status, but enforce valid enum
-    const valid = ['pending','inProgress','done','cancelled'];
+    const valid = ['pending','done','cancelled'];
     if (!valid.includes(req.body.status)) {
       throw createError(400, 'Invalid status value');
     }

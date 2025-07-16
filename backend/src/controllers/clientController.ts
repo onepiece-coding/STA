@@ -38,11 +38,9 @@ export const createClientCtrl = asyncHandler(
     } = req.body;
     const sellerId = req.user!._id.toString();
 
-    // 1) Load the seller’s sectors
     const seller = await User.findById(sellerId).select('sectors').lean();
     if (!seller) throw createError(404, 'Seller not found');
 
-    // 2) Prevent clients outside seller’s sectors
     if (!seller.sectors?.map(String).includes(sector)) {
       throw createError(
         403,
@@ -50,7 +48,6 @@ export const createClientCtrl = asyncHandler(
       );
     }
 
-    // 3) If deliveryMan is provided, ensure they belong to this seller
     if (deliveryMan) {
       const dl = await User.findOne({
         _id: deliveryMan,
@@ -64,7 +61,6 @@ export const createClientCtrl = asyncHandler(
         throw createError(403, 'Specified delivery man is not assigned to you');
       }
 
-      // make sure this client’s sector is in his deliverySectors
       if (!dl.deliverySectors!.map(String).includes(sector)) {
         throw createError(
           403,
@@ -73,7 +69,6 @@ export const createClientCtrl = asyncHandler(
       }
     }
 
-    // 4) Prevent duplicate client names under this seller
     if (
       await Client.exists({
         name: { $regex: `^${name}$`, $options: 'i' },
@@ -83,13 +78,11 @@ export const createClientCtrl = asyncHandler(
       throw createError(409, 'Client name already in use');
     }
 
-    // 5) Generate unique clientNumber
     let clientNumber: string;
     do {
       clientNumber = makeClientNumber();
     } while (await Client.exists({ clientNumber }));
 
-    // 6) Assemble payload
     const data: any = {
       clientNumber,
       name,
@@ -102,7 +95,6 @@ export const createClientCtrl = asyncHandler(
       deliveryMan,
     };
 
-    // 7) Optional storefront picture
     if (req.file) {
       const uploadRes = await cloudinaryUploadImage(req.file.buffer, {
         folder: 'clients',
@@ -113,7 +105,6 @@ export const createClientCtrl = asyncHandler(
       };
     }
 
-    // 8) Save & respond
     const client = await Client.create(data);
     res.status(201).json(client);
   },
@@ -133,12 +124,12 @@ export const getClientsCtrl = asyncHandler(
     const limit = parseInt(req.query.limit as string, 10) || 10;
     const sectorId = req.query.sectorId as string | undefined;
     const cityId = req.query.cityId as string | undefined;
+    const clientNumber = req.query.clientNumber as string | undefined;
 
     if (!sectorId && !cityId) {
       throw createError(400, 'Please enter a sector or a city');
     }
 
-    // 1) Base filter by role
     const filter: any = {};
     if (user.role === 'seller') {
       filter.seller = user._id;
@@ -146,21 +137,22 @@ export const getClientsCtrl = asyncHandler(
       filter.deliveryMan = user._id;
     }
 
-    // 2) Filter by specific sector
     if (sectorId) {
       filter.sector = sectorId;
     }
 
-    // 3) Filter by city: find all sectors in that city
     if (cityId) {
       const sectors = await Sector.find({ city: cityId }).select('_id').lean();
       const sectorIds = sectors.map((s) => s._id);
       filter.sector = { $in: sectorIds };
     }
 
+    if(clientNumber){
+      filter.clientNumber = req.params.clientNumber;
+    }
+
     const total = await Client.countDocuments(filter);
 
-    // 4) Fetch & populate
     const data = await Client.find(filter)
       .populate('sector', 'name')
       .populate('seller', 'username')
@@ -194,7 +186,6 @@ export const getClientByIdCtrl = asyncHandler(
     const user = req.user!;
     const clientId = req.params.id;
 
-    // Build base filter by role
     const filter: any = { _id: clientId };
     if (user.role === 'seller') {
       filter.seller = user._id;
@@ -202,7 +193,6 @@ export const getClientByIdCtrl = asyncHandler(
       filter.deliveryMan = user._id;
     }
 
-    // Fetch the single client
     const client = await Client.findOne(filter)
       .populate('sector', 'name')
       .populate('seller', 'username')
@@ -211,7 +201,6 @@ export const getClientByIdCtrl = asyncHandler(
       .lean();
 
     if (!client) {
-      // either not found or not permitted
       throw createError(404, 'Client not found');
     }
 

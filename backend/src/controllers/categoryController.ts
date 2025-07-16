@@ -26,12 +26,39 @@ export const createCategoryCtrl = asyncHandler(
  * @method POST
  * @access private(admin)
 --------------------------------------*/
-export const getCategoryCtrl = asyncHandler(
+export const getCategoriesCtrl = asyncHandler(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const list = await Category.find();
-    res.status(200).json(list);
-  },
+    const page   = parseInt(req.query.page  as string, 10) || 1;
+    const limit  = parseInt(req.query.limit as string, 10) || 10;
+    const search = (req.query.search as string) ?? undefined;
+
+    const filter: Record<string, any> = {};
+    if (search) {
+      filter.name = { $regex: search, $options: 'i' };
+    }
+
+    const total = await Category.countDocuments(filter);
+
+    const data = await Category.find(filter)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort('name')
+      .lean();
+
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    });
+  }
 );
+
 
 /**-----------------------------------
  * @desc   Delete Category

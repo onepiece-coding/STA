@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import createError from 'http-errors';
 import Sector from '../models/Sector.js';
 import City from '../models/City.js';
+import User from '../models/User.js';
 
 /**--------------------------------------------------
  * @desc Create Sector
@@ -26,7 +27,7 @@ export const createSectorCtrl = asyncHandler(async (req: Request, res: Response)
 ---------------------------------------------------*/
 export const getSectorsByCityCtrl = asyncHandler(async (req: Request, res: Response) => {
   const { cityId } = req.params;
-  const sectors = await Sector.find({ city: cityId }).sort('name');
+  const sectors = await Sector.find({ city: cityId }).sort('name').populate("city", "name");
   res.status(200).json(sectors);
 });
 
@@ -37,7 +38,19 @@ export const getSectorsByCityCtrl = asyncHandler(async (req: Request, res: Respo
 ---------------------------------------------------*/
 export const deleteSectorCtrl = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+
   const sector = await Sector.findByIdAndDelete(id);
   if (!sector) throw createError(404, 'Sector not found');
-  res.status(200).json({ message: 'Sector deleted successfully' });
+
+  await User.updateMany(
+    { role: 'seller' },
+    { $pull: { sectors: sector._id } }
+  );
+
+  await User.updateMany(
+    { role: 'delivery' },
+    { $pull: { deliverySectors: sector._id } }
+  );
+
+  res.status(200).json({ message: 'Sector deleted and removed from all users' });
 });

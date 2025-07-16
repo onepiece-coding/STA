@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import createError from 'http-errors';
-import User from '../models/User.js';
 import { Types } from 'mongoose';
+import User from '../models/User.js';
 
 /**--------------------------------------
  * @desc    Create Seller
@@ -32,11 +32,43 @@ export const createSellerCtrl = asyncHandler(
  * @method  GET
  * @access  private (admin)
 -----------------------------------------*/
-export const getSellersCtrl = asyncHandler(async (_req, res) => {
-  const sellers = await User.find({ role: 'seller' })
+export const getSellersCtrl = asyncHandler(async (req: Request, res: Response) => {
+  // Read query params
+  const page     = parseInt(req.query.page  as string, 10) || 1;
+  const limit    = parseInt(req.query.limit as string, 10) || 10;
+  const search   = (req.query.search  as string) ?? '';
+
+  // Build filter
+  const filter: Record<string, any> = { role: 'seller' };
+  if (search) {
+    filter.username = { $regex: search, $options: 'i' };
+  }
+
+  // Count total matching documents
+  const total = await User.countDocuments(filter);
+
+  // Query page of sellers
+  const sellers = await User.find(filter)
     .select('-password -__v')
-    .populate('sectors', 'name');
-  res.status(200).json(sellers);
+    .populate('sectors', 'name')
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .sort('username')
+    .lean();
+
+  // Prepare metadata
+  const totalPages = Math.ceil(total / limit);
+
+  // Return
+  res.status(200).json({
+    data: sellers,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages
+    }
+  });
 });
 
 /**
@@ -160,22 +192,50 @@ export const createDeliveryCtrl = asyncHandler(
 --------------------------------------------*/
 export const getDeliveryCtrl = asyncHandler(
   async (req: Request, res: Response) => {
-    const filters: any = {};
+    const page       = parseInt(req.query.page as string, 10) || 1;
+    const limit      = parseInt(req.query.limit as string, 10) || 10;
+    const search     = (req.query.search    as string) ?? '';
+    const sellerId   = (req.query.sellerId  as string) ?? '';
 
-    if (req.user.role === 'admin') filters.role = 'delivery';
-    if (req.user.role === 'seller') {
-      filters.role = 'delivery';
-      filters.seller = req.user._id;
+    const filter: any = { role: 'delivery' };
+
+    if (req.user.role === 'admin') {
+      if (sellerId) {
+        filter.seller = sellerId;
+      }
+    } else {
+      filter.seller = req.user._id;
     }
 
-    const list = await User.find(filters)
+    if (search) {
+      filter.username = { $regex: search, $options: 'i' };
+    }
+
+    const total = await User.countDocuments(filter);
+
+    const data = await User.find(filter)
       .select('-password -__v')
       .populate('seller', 'username')
-      .populate('deliverySectors', 'name');
+      .populate('deliverySectors', 'name')
+      .sort('username')
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
 
-    res.status(200).json(list);
-  },
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages
+      }
+    });
+  }
 );
+
 
 /**
  * @desc    Get a single delivery user by ID

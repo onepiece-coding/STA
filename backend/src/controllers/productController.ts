@@ -175,31 +175,6 @@ export const updateProductCtrl = asyncHandler(
   },
 );
 
-/**
- * @desc   Manually adjust a product’s stock
- * @route  POST /api/v1/products/adjust
- * @body   { productId, quantityDiff }
- * @access private (admin)
- */
-export const manualAdjustCtrl = asyncHandler(async (req, res) => {
-  const { productId, quantityDiff } = req.body;
-  if (!productId || typeof quantityDiff !== 'number') {
-    throw createError(400, 'productId and quantityDiff are required');
-  }
-
-  const product = await Product.findById(productId);
-  if (!product) throw createError(404, 'Product not found');
-
-  // 1) Update currentStock
-  product.currentStock += quantityDiff;
-  await product.save();
-
-  res.status(200).json({
-    productId,
-    newStock: product.currentStock,
-  });
-});
-
 /**-----------------------------------
  * @desc   Delete product
  * @route  /api/v1/products/:id

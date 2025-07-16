@@ -3,7 +3,9 @@ import { authenticateUser, authorizeRoles } from '../middlewares/auth.js';
 import {
   createCityCtrl,
   getCitiesCtrl,
-  deleteCityCtrl
+  deleteCityCtrl,
+  getCityByIdCtrl,
+  updateCityCtrl
 } from '../controllers/cityController.js';
 import { validateCreateCity } from '../validations/cityValidations.js';
 import { validateObjectIdParam } from '../validations/validateObjectId.js';
@@ -16,6 +18,10 @@ router.post('/', authorizeRoles('admin'), ...validateCreateCity, createCityCtrl)
 router.get('/', authorizeRoles('admin', 'seller'), getCitiesCtrl);
 
 // /api/v1/cities/:id
-router.delete('/:id', authorizeRoles('admin'), validateObjectIdParam('id'), deleteCityCtrl);
+router.route("/:id")
+      .all(validateObjectIdParam('id'))
+      .get(authorizeRoles('admin', 'seller'), getCityByIdCtrl)
+      .patch(authorizeRoles('admin'), updateCityCtrl)
+      .delete(authorizeRoles('admin'), deleteCityCtrl);
 
 export default router;

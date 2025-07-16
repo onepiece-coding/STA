@@ -6,7 +6,6 @@ import {
   getDiscountedProductsCtrl,
   getProductByIdCtrl,
   getProductsCtrl,
-  manualAdjustCtrl,
   updateProductCtrl,
 } from '../controllers/productController.js';
 import { photoUpload } from '../middlewares/fileUpload.js';
@@ -36,9 +35,6 @@ router.get(
   authorizeRoles('admin', 'seller'),
   getDiscountedProductsCtrl,
 );
-
-// /api/v1/products/adjust
-router.post('/adjust', authorizeRoles('admin'), manualAdjustCtrl);
 
 // /api/v1/products/:id
 router

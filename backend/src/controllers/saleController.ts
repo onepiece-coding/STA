@@ -4,7 +4,20 @@ import createError from 'http-errors';
 import Sale from '../models/Sale.js';
 import Client from '../models/Client.js';
 import Product from '../models/Product.js';
+import { Types } from 'mongoose';
 // import { generateInvoicePDF } from '../utils/invoice.js'; // optional
+
+interface SaleItemDto {
+  productId: string;
+  soldBy: 'unit' | 'carton';
+  quantity: number;
+}
+
+interface CreateSaleDto {
+  clientId: string;
+  date?: string;
+  items: SaleItemDto[];
+}
 
 // Utility to build a unique saleNumber (date + counter)
 async function makeSaleNumber(): Promise<string> {
@@ -21,18 +34,20 @@ async function makeSaleNumber(): Promise<string> {
  * @access private(seller)
  */
 export const createSaleCtrl = asyncHandler(
-  async (req: Request, res: Response) => {
+  async (req: Request<{}, {}, CreateSaleDto>, res: Response) => {
     const { clientId, items, date } = req.body;
-    /** {  
-    "clientId": "...",  
-    "items": [ … ],  
-    "date": "2025-07-14T10:00:00Z"  
-  } */
     const seller = req.user!._id;
 
     // Client must belong to this seller
     const client = await Client.findOne({ _id: clientId, seller });
     if (!client) throw createError(404, 'Client not found');
+
+    const productIds = items.map(it => it.productId);
+    const products = await Product.find({ _id: { $in: productIds } });
+
+    const prodMap = new Map<string, typeof products[number]>(
+      products.map(p => [p.id, p])
+    );
 
     const deliveryMan = client.deliveryMan;
     if (!deliveryMan) {
@@ -43,8 +58,11 @@ export const createSaleCtrl = asyncHandler(
     let totalAmount = 0;
     const lineItems = [];
     for (let it of items) {
-      const p = await Product.findById(it.productId);
+      const p = prodMap.get(it.productId);
       if (!p) throw createError(404, `Product ${it.productId} not found`);
+      if (p.currentStock < it.quantity) {
+        throw createError(400, `Insufficient stock for product ${p.name}`);
+      }
 
       // compute discount & price
       let discount = 0;
@@ -55,23 +73,17 @@ export const createSaleCtrl = asyncHandler(
       const total = unitPrice * it.quantity;
       totalAmount += total;
 
-      // decrement stock
-      const upd = await Product.updateOne(
-        { _id: p._id, currentStock: { $gte: it.quantity } },
-        { $inc: { currentStock: -it.quantity } },
-      );
-      if (upd.modifiedCount !== 1) {
-        throw createError(400, `Insufficient stock for product ${p._id}`);
-      }
-
-      lineItems.push({
-        productId: p._id,
-        soldBy: it.soldBy,
-        quantity: it.quantity,
-        discount,
-        unitPrice,
-        total,
+      lineItems.push({ 
+        productId: p._id, soldBy: it.soldBy, quantity: it.quantity,
+        discount, unitPrice, total 
       });
+    }
+
+    for (let it of lineItems) {
+      await Product.updateOne(
+        { _id: it.productId },
+        { $inc: { currentStock: -it.quantity } }
+      );
     }
 
     // Sale number
@@ -211,12 +223,12 @@ export const getSalesCtrl = asyncHandler(
       throw createError(400, 'Please provide a date');
     }
 
-    // 1) Pagination defaults
+    // Pagination defaults
     const page = Math.max(1, parseInt(pageStr, 10) || 1);
     const limit = Math.max(1, parseInt(limitStr, 10) || 10);
     const skip = (page - 1) * limit;
 
-    // 2) Build filter
+    // Build filter
     const filter: any = {};
     if (user.role === 'seller') filter.seller = user._id;
     if (user.role === 'delivery') filter.deliveryMan = user._id;
@@ -230,10 +242,10 @@ export const getSalesCtrl = asyncHandler(
       if (to) filter.date.$lte = new Date(to);
     }
 
-    // 3) Count total matching
+    // Count total matching
     const total = await Sale.countDocuments(filter);
 
-    // 4) Fetch page
+    // Fetch page
     const data = await Sale.find(filter)
       .populate('client', 'name clientNumber')
       .populate('items.productId', 'name')
@@ -242,7 +254,7 @@ export const getSalesCtrl = asyncHandler(
       .limit(limit)
       .lean();
 
-    // 5) Meta
+    // Meta
     const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({

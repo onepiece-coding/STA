@@ -17,6 +17,7 @@ import clientRouter from './routes/clientRoute.js';
 import saleRouter from './routes/saleRoute.js';
 import orderRouter from './routes/orderRoute.js';
 import statsRouter from './routes/statsRoute.js';
+import adminRouter from './routes/adminRoute.js';
 
 import { errorHandler, notFound } from './middlewares/error.js';
 
@@ -57,6 +58,7 @@ app.use('/api/v1/clients', clientRouter);
 app.use('/api/v1/sales', saleRouter);
 app.use('/api/v1/orders', orderRouter);
 app.use('/api/v1/stats', statsRouter);
+app.use('/api/v1/admin', adminRouter);
 
 // 404 Handler
 app.use(notFound);
