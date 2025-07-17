@@ -23,16 +23,17 @@ router.use(authenticateUser);
 router
   .route('/')
   .post(
+    authorizeRoles('admin'),
     photoUpload.single('image'),
     ...validateCreateProduct,
     createProductCtrl,
   )
-  .get(getProductsCtrl);
+  .get(authorizeRoles('admin', 'seller', 'instant'), getProductsCtrl);
 
 // /api/v1/products/discounts
 router.get(
   '/discounts',
-  authorizeRoles('admin', 'seller'),
+  authorizeRoles('admin', 'seller', 'instant'),
   getDiscountedProductsCtrl,
 );
 
@@ -40,7 +41,7 @@ router.get(
 router
   .route('/:id')
   .all(validateObjectIdParam('id'))
-  .get(getProductByIdCtrl)
+  .get(authorizeRoles('admin', 'seller', 'instant'), getProductByIdCtrl)
   .patch(
     authorizeRoles('admin'),
     photoUpload.single('image'),

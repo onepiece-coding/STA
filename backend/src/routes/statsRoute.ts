@@ -10,7 +10,7 @@ router.use(authenticateUser);
 // /api/v1/stats
 router.get(
   '/',
-  authorizeRoles('admin','seller'),
+  authorizeRoles('admin','seller', 'instant'),
   validateStats,
   getStatsCtrl
 );

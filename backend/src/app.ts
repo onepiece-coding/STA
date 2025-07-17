@@ -18,6 +18,7 @@ import saleRouter from './routes/saleRoute.js';
 import orderRouter from './routes/orderRoute.js';
 import statsRouter from './routes/statsRoute.js';
 import adminRouter from './routes/adminRoute.js';
+import instantSaleRouter from './routes/instantSaleRoute.js';
 
 import { errorHandler, notFound } from './middlewares/error.js';
 
@@ -59,6 +60,7 @@ app.use('/api/v1/sales', saleRouter);
 app.use('/api/v1/orders', orderRouter);
 app.use('/api/v1/stats', statsRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/instant-sales', instantSaleRouter);
 
 // 404 Handler
 app.use(notFound);

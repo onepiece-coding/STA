@@ -24,7 +24,7 @@ export interface ISale extends Document {
   }; // returns on this sale
   returnGlobal: number; // ad‑hoc returns outside line items
   netAmount: number; // totalAmount − (sum of returns) − returnGlobal
-  paymentType: 'espece' | 'card' | 'other';
+  paymentMethod: 'espece' | 'card' | 'other';
   amountPaid: number;
   invoiceUrl?: string; // generated PDF link
 }
@@ -58,7 +58,7 @@ const saleSchema = new Schema<ISale>(
     },
     returnGlobal: { type: Number, default: 0 },
     netAmount: { type: Number, required: true },
-    paymentType: {
+    paymentMethod: {
       type: String,
       enum: ['espece', 'card', 'other'],
       default: 'espece',

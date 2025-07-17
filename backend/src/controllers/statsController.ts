@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import createError from 'http-errors';
 import Sale from '../models/Sale.js';
 import mongoose from 'mongoose';
 
@@ -20,9 +19,9 @@ export const getStatsCtrl = asyncHandler(
       if (from) match.date.$gte = new Date(from);
       if (to) match.date.$lte = new Date(to);
     }
-    if (user.role === 'seller') {
+    if (user.role === 'seller' || user.role === 'instant') {
       // sellers only see their own sales
-      match.seller = new mongoose.Types.ObjectId(user._id);
+      match.seller = user._id;
     } else if (sellerId) {
       // admin may filter by specific seller
       match.seller = new mongoose.Types.ObjectId(sellerId);

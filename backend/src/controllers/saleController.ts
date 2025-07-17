@@ -4,7 +4,7 @@ import createError from 'http-errors';
 import Sale from '../models/Sale.js';
 import Client from '../models/Client.js';
 import Product from '../models/Product.js';
-import { Types } from 'mongoose';
+import Supply from '../models/Supply.js';
 // import { generateInvoicePDF } from '../utils/invoice.js'; // optional
 
 interface SaleItemDto {
@@ -80,11 +80,26 @@ export const createSaleCtrl = asyncHandler(
     }
 
     for (let it of lineItems) {
+      let remainingToDeduct = it.quantity;
+      const supplies = await Supply
+        .find({ productId: it.productId, remainingQty: { $gt: 0 } })
+        .sort('expiringAt')
+        .exec();
+  
+      for (let sup of supplies) {
+        const take = Math.min(sup.remainingQty, remainingToDeduct);
+        sup.remainingQty -= take;
+        remainingToDeduct -= take;
+        await sup.save();
+        if (remainingToDeduct === 0) break;
+      }
+
       await Product.updateOne(
         { _id: it.productId },
         { $inc: { currentStock: -it.quantity } }
       );
     }
+
 
     // Sale number
     const saleNumber = await makeSaleNumber();
@@ -155,6 +170,20 @@ export const updateSaleCtrl = asyncHandler(
 
       // Replenish stock for each returned line
       for (let it of newReturns) {
+        let ToAdd = it.quantity;
+        const supplies = await Supply
+          .find({ productId: it.productId})
+          .sort('-expiringAt')
+          .exec();
+    
+        for (let sup of supplies) {
+          const take = Math.min((sup.quantity - sup.remainingQty), ToAdd);
+          sup.remainingQty += take;
+          ToAdd -= take;
+          await sup.save();
+          if (ToAdd === 0) break;
+        }
+
         await Product.updateOne(
           { _id: it.productId },
           { $inc: { currentStock: it.quantity } },
@@ -175,8 +204,8 @@ export const updateSaleCtrl = asyncHandler(
     }
 
     // 4) Payment updates
-    if (req.body.paymentType) {
-      sale.paymentType = req.body.paymentType;
+    if (req.body.paymentMethod) {
+      sale.paymentMethod = req.body.paymentMethod;
     }
     if (req.body.amountPaid && typeof req.body.amountPaid === 'number') {
       const newPaid = sale.amountPaid + req.body.amountPaid;
@@ -205,7 +234,7 @@ export const updateSaleCtrl = asyncHandler(
 /**
  * @desc   Get sales (filter by seller or delivery man)
  * @route  GET /api/v1/sales
- * @access private(seller|delivery)
+ * @access private(seller|delivery|instant)
  */
 export const getSalesCtrl = asyncHandler(
   async (req: Request, res: Response) => {
@@ -220,7 +249,7 @@ export const getSalesCtrl = asyncHandler(
     } = req.query as Record<string, string>;
 
     if (!from || !to) {
-      throw createError(400, 'Please provide a date');
+      throw createError(400, '`from` and `to` query parameters are both required');
     }
 
     // Pagination defaults
@@ -230,7 +259,7 @@ export const getSalesCtrl = asyncHandler(
 
     // Build filter
     const filter: any = {};
-    if (user.role === 'seller') filter.seller = user._id;
+    if (user.role === 'seller' || user.role === 'instant') filter.seller = user._id;
     if (user.role === 'delivery') filter.deliveryMan = user._id;
     if (status) filter.deliveryStatus = status;
     if (clientId) filter.client = clientId;
@@ -274,11 +303,12 @@ export const getSaleByIdCtrl = asyncHandler(
     const user = req.user!;
     const filter: any = {};
     filter._id = req.params.id;
-    if (user.role === 'seller') filter.seller = user._id;
+    if (user.role === 'seller' || user.role === 'instant') filter.seller = user._id;
     if (user.role === 'delivery') filter.deliveryMan = user._id;
     const sale = await Sale.findOne(filter)
       .populate('client', 'name clientNumber')
       .populate('items.productId', 'name');
+    if (!sale) throw createError(404, 'Sale not found');
     res.status(200).json(sale);
   },
 );

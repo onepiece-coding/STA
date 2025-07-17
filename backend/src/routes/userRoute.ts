@@ -11,12 +11,17 @@ import {
   deleteDeliveryCtrl,
   getSellerByIdCtrl,
   getDeliveryByIdCtrl,
+  getInstantSellerByIdCtrl,
+  getInstantSellersCtrl,
+  updateInstantSellerCtrl,
+  deleteInstantSellerCtrl,
 } from '../controllers/userController.js';
 import {
   validateCreateSeller,
   validateCreateDelivery,
 } from '../validations/userValidations.js';
 import { validateObjectIdParam } from '../validations/validateObjectId.js';
+import { createInstantSaleCtrl } from '../controllers/instantSaleController.js';
 
 const router = Router();
 router.use(authenticateUser);
@@ -49,5 +54,21 @@ router
   .get(authorizeRoles('admin'), getDeliveryByIdCtrl)
   .patch(authorizeRoles('admin'), updateDeliveryCtrl)
   .delete(authorizeRoles('admin', 'delivery'), deleteDeliveryCtrl);
+
+// /api/v1/users/instant-sellers
+router
+  .route('/instant-sellers')
+  .all(authorizeRoles('admin'))
+  .post(...validateCreateSeller, createInstantSaleCtrl)
+  .get(getInstantSellersCtrl);
+
+// /api/v1/users/instant-seller/:id
+router
+  .route('/instant-sellers/:id')
+  .all(validateObjectIdParam('id'))
+  .get(authorizeRoles('admin'), getInstantSellerByIdCtrl)
+  .patch(authorizeRoles('admin'), updateInstantSellerCtrl)
+  .delete(authorizeRoles('admin'), deleteInstantSellerCtrl);
+
 
 export default router;

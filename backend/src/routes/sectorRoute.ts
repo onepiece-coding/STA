@@ -17,7 +17,7 @@ router.use(authenticateUser);
 router.post('/', authorizeRoles('admin'), ...validateCreateSector, createSectorCtrl);
 
 // /api/v1/sectors/:cityId/sectors
-router.get('/:cityId/sectors', authorizeRoles('admin', 'seller'), validateObjectIdParam('cityId'), getSectorsByCityCtrl);
+router.get('/:cityId/sectors', authorizeRoles('admin', 'seller', 'instant'), validateObjectIdParam('cityId'), getSectorsByCityCtrl);
 
 // /api/v1/sectors/:id
 router.delete('/:id', authorizeRoles('admin'), validateObjectIdParam('id'), deleteSectorCtrl);

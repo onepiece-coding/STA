@@ -322,3 +322,147 @@ export const deleteDeliveryCtrl = asyncHandler(
     res.status(200).json({ message: 'Delivery user deleted' });
   },
 );
+
+/**--------------------------------------
+ * @desc    Create Instant Seller
+ * @route   /api/v1/user/instant-seller
+ * @method  POST
+ * @access  private (admin)
+-----------------------------------------*/
+export const createInstantSellerCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { username, password, sectors } = req.body;
+    if (await User.findOne({ username }))
+      throw createError(409, 'Username taken');
+    const seller = await User.create({
+      username,
+      password,
+      role: 'instant',
+      sectors,
+    });
+    seller.password = undefined!;
+    res.status(201).json(seller);
+  },
+);
+
+/**--------------------------------------
+ * @desc    Get Instant Sellers
+ * @route   /api/v1/user/instant-sellers
+ * @method  GET
+ * @access  private (admin)
+-----------------------------------------*/
+export const getInstantSellersCtrl = asyncHandler(async (req: Request, res: Response) => {
+  // Read query params
+  const page     = parseInt(req.query.page  as string, 10) || 1;
+  const limit    = parseInt(req.query.limit as string, 10) || 10;
+  const search   = (req.query.search  as string) ?? '';
+
+  // Build filter
+  const filter: Record<string, any> = { role: 'instant' };
+  if (search) {
+    filter.username = { $regex: search, $options: 'i' };
+  }
+
+  // Count total matching documents
+  const total = await User.countDocuments(filter);
+
+  // Query page of sellers
+  const instant = await User.find(filter)
+    .select('-password -__v')
+    .populate('sectors', 'name')
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .sort('username')
+    .lean();
+
+  // Prepare metadata
+  const totalPages = Math.ceil(total / limit);
+
+  // Return
+  res.status(200).json({
+    data: instant,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages
+    }
+  });
+});
+
+/**
+ * @desc    Get a single instant seller by ID
+ * @route   GET /api/v1/user/sellers/:id
+ * @access  private (admin or the seller themselves)
+ */
+export const getInstantSellerByIdCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const me = req.user!;
+
+    // Only admins or the seller themselves may fetch
+    const filter: any = { _id: id, role: 'instant' };
+    if (me.role !== 'admin') {
+      filter._id = me._id;
+    }
+
+    const seller = await User.findOne(filter)
+      .select('-password -__v')
+      .populate('sectors', 'name')
+      .lean();
+
+    if (!seller) {
+      throw createError(404, 'Instant Seller not found');
+    }
+
+    res.status(200).json(seller);
+  },
+);
+
+/**-------------------------------------------
+ * @desc    Update instant Seller by Id
+ * @route   /api/v1/user/instant-sellers/:id
+ * @method  PATCH
+ * @access  private (admin / Seller himself)
+----------------------------------------------*/
+export const updateInstantSellerCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const instant = await User.findById(id);
+    if (!instant || instant.role !== 'instant')
+      throw createError(404, 'Instant Seller not found');
+
+    const updates: Partial<Record<string, any>> = {};
+    if (req.body.password) updates.password = req.body.password;
+    if (Array.isArray(req.body.sectors) && req.user.role === 'admin')
+      updates.sectors = req.body.sectors;
+
+    // If no updatable fields were provided, abort with 400
+    if (Object.keys(updates).length === 0) {
+      throw createError(400, 'Nothing to update');
+    }
+
+    Object.assign(instant, updates);
+    await instant.save();
+
+    instant.password = undefined!;
+
+    res.status(200).json(instant);
+  },
+);
+
+/**-------------------------------------------
+ * @desc    Delete instant Seller by Id
+ * @route   /api/v1/user/instant-sellers/:id
+ * @method  DELETE
+ * @access  private (admin)
+----------------------------------------------*/
+export const deleteInstantSellerCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const instant = await User.findOneAndDelete({ _id: id, role: 'instant' });
+    if (!instant) throw createError(404, 'Instant Seller not found');
+    res.status(200).json({ message: 'Instant seller deleted' });
+  },
+);

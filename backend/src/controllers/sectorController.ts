@@ -43,7 +43,7 @@ export const deleteSectorCtrl = asyncHandler(async (req: Request, res: Response)
   if (!sector) throw createError(404, 'Sector not found');
 
   await User.updateMany(
-    { role: 'seller' },
+    { role: { $in: ['seller', 'instant'] } },
     { $pull: { sectors: sector._id } }
   );
 
