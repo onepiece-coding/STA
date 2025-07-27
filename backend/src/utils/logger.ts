@@ -1,6 +1,6 @@
 import pino, { Logger, LoggerOptions, StreamEntry } from 'pino';
-import { ecsFormat } from'@elastic/ecs-pino-format';
-import { multistream } from "pino";
+import { ecsFormat } from '@elastic/ecs-pino-format';
+import { multistream } from 'pino';
 
 interface ExtendedLogger extends Logger {
   childWithContext(context: Record<string, any>): Logger;
@@ -18,19 +18,19 @@ const redactPaths = [
   '*.refreshToken',
   'req.headers.cookie',
   'req.headers["set-cookie"]',
-  'res.headers["set-cookie"]'
+  'res.headers["set-cookie"]',
 ];
 
 // 3. Stream configuration
-const streams:StreamEntry[] = [
+const streams: StreamEntry[] = [
   { stream: process.stdout }, // Required for Docker/K8s
-  { 
+  {
     stream: pino.destination({
       dest: 'logs/combined.log',
       mkdir: true, // Auto-create logs directory
-      sync: false // Asynchronous writes
-    })
-  }
+      sync: false, // Asynchronous writes
+    }),
+  },
 ];
 
 if (isProduction) {
@@ -39,15 +39,15 @@ if (isProduction) {
     stream: pino.destination({
       dest: 'logs/error.log',
       minLength: 4096, // Buffer 4KB before writing
-      sync: false
-    })
+      sync: false,
+    }),
   });
 }
 
 // 4. ECS customization for better Elasticsearch mapping
 const ecsOptions = {
   convertReqRes: true,
-  apmIntegration: Boolean(process.env.APM_SERVER_URL)
+  apmIntegration: Boolean(process.env.APM_SERVER_URL),
 };
 
 // 5. Logger instance
@@ -72,10 +72,11 @@ const opts: LoggerOptions = {
   },
 };
 
+//@ts-ignore
 const logger = pino(opts, multistream(streams)) as ExtendedLogger;
 
-
 // 6. Child logger factory for contextual logging
-logger.childWithContext = (context: Record<string, any>) => logger.child({ context });
+logger.childWithContext = (context: Record<string, any>) =>
+  logger.child({ context });
 
 export default logger;

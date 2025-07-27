@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import asyncHandler from 'express-async-handler';
 import createError from 'http-errors';
 import jwt from 'jsonwebtoken';
-
 import User from '../models/User.js';
 
 /**-------------------------------------------
@@ -12,7 +11,7 @@ import User from '../models/User.js';
  * @access public
 ----------------------------------------------*/
 export const loginUserCtrl = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
     if (!user || !(await user.comparePassword(password))) {
@@ -23,7 +22,22 @@ export const loginUserCtrl = asyncHandler(
       process.env.JWT_SECRET!,
       { expiresIn: '8h' },
     );
-    res.status(200).json({ token });
+    res.status(200).json({ accessToken: token });
+  },
+);
+
+/**-------------------------------------------
+ * @desc   Get Current User
+ * @route  /api/v1/auth/current-user
+ * @method GET
+ * @access private
+----------------------------------------------*/
+export const getCurrentUser = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = await User.findById(req.user._id, '-password')
+      .populate('sectors', '_id name')
+      .populate('deliverySectors', '_id name');
+    res.status(200).json(user);
   },
 );
 
@@ -67,6 +81,6 @@ export const changePasswordCtrl = asyncHandler(
     await user.save(); // pre-save hook will hash
 
     // 5) respond
-    res.status(200).json({ message: 'Password changed successfully' });
+    res.status(200).json({ message: 'Mot de passe modifié avec succès' });
   },
 );

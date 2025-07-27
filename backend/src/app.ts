@@ -23,49 +23,57 @@ import instantSaleRouter from './routes/instantSaleRoute.js';
 import { errorHandler, notFound } from './middlewares/error.js';
 
 // Initialize app
-const app:Application = express();
+const app: Application = express();
 
 // Security Middlewares
 app.use(helmet());
 app.use(hpp());
 app.use(
   cors({
-    origin: process.env.CLIENT_DOMAIN?.split(",") ?? [],
-    methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
+    origin: process.env.CLIENT_DOMAIN?.split(',') ?? [],
+    methods: ['GET', 'POST', 'DELETE', 'PUT', 'PATCH'],
     credentials: true,
-  })
+  }),
 );
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 500,
-  })
+  }),
 );
 
 // Body parsers and cookie parser
-app.use(express.json({ limit: "10kb" })); // Adjust based on your needs
+app.use(express.json({ limit: '10kb' })); // Adjust based on your needs
 app.use(cookieParser(process.env.COOKIE_SECRET));
 
 // Routes
-app.use('/', healthRouter);
-app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/categories', categoryRouter);
-app.use('/api/v1/products', productRouter);
-app.use('/api/v1/supplies', supplyRouter);
-app.use('/api/v1/cities', cityRouter);
-app.use('/api/v1/sectors', sectorRouter);
-app.use('/api/v1/users', userRouter);
-app.use('/api/v1/clients', clientRouter);
-app.use('/api/v1/sales', saleRouter);
-app.use('/api/v1/orders', orderRouter);
-app.use('/api/v1/stats', statsRouter);
-app.use('/api/v1/admin', adminRouter);
-app.use('/api/v1/instant-sales', instantSaleRouter);
+app.use('/', healthRouter); // done
+app.use('/api/v1/auth', authRouter); // done
+app.use('/api/v1/categories', categoryRouter); // done
+app.use('/api/v1/products', productRouter); // done
+app.use('/api/v1/supplies', supplyRouter); // done
+app.use('/api/v1/cities', cityRouter); // done
+app.use('/api/v1/sectors', sectorRouter); // done
+app.use('/api/v1/users', userRouter); // done
+app.use('/api/v1/clients', clientRouter); // done
+app.use('/api/v1/sales', saleRouter); // done
+app.use('/api/v1/instant-sales', instantSaleRouter); // done
+app.use('/api/v1/orders', orderRouter); // done
+app.use('/api/v1/stats', statsRouter); // done
+app.use('/api/v1/admin', adminRouter); //
+// Monday => The Meet
 
 // 404 Handler
 app.use(notFound);
 
 // Global Error Handler
-app.use(errorHandler as (err: Error, req: Request, res: Response, next: NextFunction) => void);
+app.use(
+  errorHandler as (
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => void,
+);
 
 export default app;

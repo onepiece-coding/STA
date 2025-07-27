@@ -9,50 +9,65 @@ import Sector from '../models/Sector.js';
  * @route POST /api/v1/cities
  * @access private (admin only)
 ---------------------------------------------------*/
-export const createCityCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const { name } = req.body;
-  const exists = await City.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
-  if (exists) throw createError(409, 'City already exists');
-  const city = await City.create({ name });
-  res.status(201).json(city);
-});
+export const createCityCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { name } = req.body;
+    const exists = await City.findOne({
+      name: { $regex: `^${name}$`, $options: 'i' },
+    });
+    if (exists) throw createError(409, 'City already exists');
+    const city = await City.create({ name });
+    res.status(201).json(city);
+  },
+);
 
 /**--------------------------------------------------
  * @desc Get Cities
  * @route GET /api/v1/cities
  * @access private (Admin/ Seller only)
 ---------------------------------------------------*/
-export const getCitiesCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const page   = parseInt(req.query.page  as string, 10) || 1;
-  const limit  = parseInt(req.query.limit as string, 10) || 10;
-  const search = (req.query.search as string) ?? undefined;
-  
-  const filter: Record<string, any> = {};
-  if (search) {
-    filter.name = { $regex: search, $options: 'i' };
-  }
-  
-  const total = await City.countDocuments(filter);
-  
-  const data = await City.find(filter)
-    .select("name _id")
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .sort('name')
-    .lean();
-  
-  const totalPages = Math.ceil(total / limit);
-  
-  res.status(200).json({
-    data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages
+export const getCitiesCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const pageFromReq = req.query.page as string | undefined;
+    const limitFromReq = req.query.limit as string | undefined;
+    const search = (req.query.search as string) ?? undefined;
+
+    const filter: Record<string, any> = {};
+    if (search) {
+      filter.name = { $regex: search, $options: 'i' };
     }
-  });
-})
+
+    const total = await City.countDocuments(filter);
+
+    let query = City.find(filter).lean();
+
+    let page: number | null = null;
+    let limit: number | null = null;
+    let totalPages: number | null = null;
+
+    if (pageFromReq != null && limitFromReq != null) {
+      page = parseInt(pageFromReq, 10);
+      limit = parseInt(limitFromReq, 10);
+
+      if (page < 1) page = 1;
+      if (limit < 1) limit = 10;
+
+      query = query.skip((page - 1) * limit).limit(limit);
+      totalPages = Math.ceil(total / limit);
+    }
+
+    const data = await query;
+
+    const meta: Record<string, any> = { total };
+    if (page != null && limit != null) {
+      meta.page = page;
+      meta.limit = limit;
+      meta.totalPages = totalPages;
+    }
+
+    res.status(200).json({ data, meta });
+  },
+);
 
 /**--------------------------------------------------
  * @desc Get City by ID (with its sectors)
@@ -72,7 +87,7 @@ export const getCityByIdCtrl = asyncHandler(
       .lean();
 
     res.status(200).json({ ...city, sectors });
-  }
+  },
 );
 
 /**--------------------------------------------------
@@ -91,20 +106,20 @@ export const updateCityCtrl = asyncHandler(
     // Check uniqueness excluding this city
     const conflict = await City.findOne({
       _id: { $ne: id },
-      name: { $regex: `^${newName.trim()}$`, $options: 'i' }
+      name: { $regex: `^${newName.trim()}$`, $options: 'i' },
     });
-    if (conflict) throw createError(409, 'Another city with that name already exists');
+    if (conflict)
+      throw createError(409, 'Another city with that name already exists');
 
     const updated = await City.findByIdAndUpdate(
       id,
       { name: newName.trim() },
-      { new: true }
+      { new: true },
     );
     if (!updated) throw createError(404, 'City not found');
     res.status(200).json(updated);
-  }
+  },
 );
-
 
 /**--------------------------------------------------
  * @desc Delete City
@@ -122,6 +137,9 @@ export const deleteCityCtrl = asyncHandler(
     const city = await City.findByIdAndDelete(id);
     if (!city) throw createError(404, 'City not found');
 
-    res.status(200).json({ message: 'City and its sectors deleted successfully, Please update related staff and clients' });
-  }
+    res.status(200).json({
+      message:
+        'City and its sectors deleted successfully, Please update related staff and clients',
+    });
+  },
 );

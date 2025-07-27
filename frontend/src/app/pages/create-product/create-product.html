@@ -1,0 +1,134 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-bold tracking-tight text-gray-800">Ajouter un nouveau produit</h2>
+
+    <div class="mt-10 w-full">
+      <form [formGroup]="createProductFormData" (submit)="onSubmit()" class="space-y-6">
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label for="image" class="block text-sm/6 font-medium text-gray-900" [class.text-red-600!]="image.touched && image.dirty && image.invalid">Choisir une image</label>
+            <div class="mt-2">
+              <input
+                type="file"
+                name="image"
+                id="image"
+                (change)="onFileSelected($event)"
+                [class.border-red-600!]="image.touched && image.dirty && image.invalid"
+                class="block w-full border border-slate-300 hover:border-slate-400 rounded-md text-base focus:z-10 focus:border-teal-600 focus:ring-teal-600 disabled:opacity-50 disabled:pointer-events-none file:bg-gray-50 file:border-0 file:me-4 file:py-[0.5rem] file:px-4"
+              >
+              @if(image.touched && image.dirty) {
+                @if(image.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">L'image du produit est obligatoire!</div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="w-full md:w-1/2">
+            <label for="name" class="block text-sm/6 font-medium text-gray-900" [class.text-red-600!]="name.touched && name.dirty && name.invalid">Nom du produit</label>
+            <div class="mt-2">
+              <input
+                id="name"
+                type="text"
+                pInputText [formControl]="name"
+                class="w-full"
+                [class.border-red-600!]="name.touched && name.dirty && name.invalid"
+                autocomplete="name"
+              />
+              @if(name.touched && name.dirty) {
+                @if(name.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">Le nom du produit est obligatoire!</div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label class="block text-sm/6 font-medium text-gray-900" [class.text-red-600!]="category.touched && category.dirty && category.invalid">Choisir la catégorie</label>
+            <div class="mt-2">
+              <p-select
+                [options]="categories()"
+                [formControl]="category"
+                [showClear]="true"
+                emptyMessage="Aucun résultat trouvé"
+                optionLabel="name"
+                placeholder="Choisir la catégorie"
+                class="w-full"
+              />
+              @if(category.touched && category.dirty) {
+                @if(category.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">La catégorie de produit est obligatoire!</div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="w-full md:w-1/2">
+            <label for="unitPrice" class="block text-sm/6 font-medium text-gray-900" [class.text-red-600!]="unitPrice.touched && unitPrice.dirty && unitPrice.invalid">Le prix unitaire</label>
+            <div class="mt-2">
+              <input id="unitPrice" type="number" pInputText [formControl]="unitPrice" class="w-full" [class.border-red-600!]="unitPrice.touched && unitPrice.dirty && unitPrice.invalid" />
+              @if(unitPrice.touched && unitPrice.dirty) {
+                @if(unitPrice.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le prix unitaire est obligatoire!
+                  </div>
+                } @else if(unitPrice.hasError("min")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le prix unitaire doit être un nombre positif!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label for="minQty" class="block text-sm/6 font-medium text-gray-900" [class.text-red-600!]="minQty.touched && minQty.dirty && minQty.invalid">
+              La quantité minimale pour la remise
+            </label>
+            <div class="mt-2">
+              <input id="minQty" type="number" pInputText [formControl]="minQty" class="w-full" [class.border-red-600!]="minQty.touched && minQty.dirty && minQty.invalid" />
+              @if(minQty.touched && minQty.dirty) {
+                @if(minQty.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    la quantité minimale pour la remise est obligatoire!
+                  </div>
+                } @else if(minQty.hasError("min")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    La quantité minimale pour la remise doit être d'au moins 1!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="w-full md:w-1/2">
+            <label for="percent" class="block text-sm/6 font-medium text-gray-900" [class.text-red-600!]="percent.touched && percent.dirty && percent.invalid">
+              Le pourcentage de remise
+            </label>
+            <div class="mt-2">
+              <input id="percent" type="number" pInputText [formControl]="percent" class="w-full" [class.border-red-600!]="percent.touched && percent.dirty && percent.invalid" />
+              @if(percent.touched && percent.dirty) {
+                @if(percent.hasError("min") || percent.hasError("max")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le pourcentage de remise doit être compris entre 0 et 100!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p-button type="submit" label="Créer un produit" severity="success" [loading]="createLoading" />
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />

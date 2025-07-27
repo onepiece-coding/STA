@@ -5,10 +5,10 @@ import {
   getOrdersCtrl,
   getOrderByIdCtrl,
   updateOrderCtrl,
-  deleteOrderCtrl
+  deleteOrderCtrl,
 } from '../controllers/orderController.js';
-import { 
-  validateCreateOrder, 
+import {
+  validateCreateOrder,
   validateGetOrders,
   validateUpdateOrder,
 } from '../validations/orderValidations.js';
@@ -18,15 +18,17 @@ const router = Router();
 router.use(authenticateUser);
 
 // /api/v1/orders
-router.route('/')
-      .post(authorizeRoles('delivery'), ...validateCreateOrder, createOrderCtrl)
-      .get(authorizeRoles('delivery','seller'), validateGetOrders, getOrdersCtrl);
+router
+  .route('/')
+  .post(authorizeRoles('delivery'), ...validateCreateOrder, createOrderCtrl)
+  .get(authorizeRoles('delivery', 'seller'), validateGetOrders, getOrdersCtrl);
 
 // /api/v1/orders/:id
-router.route('/:id')
-      .all(authorizeRoles('delivery','seller'), validateObjectIdParam('id'))
-      .get( getOrderByIdCtrl)
-      .patch(...validateUpdateOrder, updateOrderCtrl)
-      .delete(deleteOrderCtrl);
+router
+  .route('/:id')
+  .all(authorizeRoles('delivery', 'seller'), validateObjectIdParam('id'))
+  .get(getOrderByIdCtrl)
+  .patch(...validateUpdateOrder, updateOrderCtrl)
+  .delete(deleteOrderCtrl);
 
 export default router;

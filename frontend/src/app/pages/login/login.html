@@ -1,0 +1,64 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-bold tracking-tight text-gray-800">
+      Connectez-vous à votre compte
+    </h2>
+
+    <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+      <form [formGroup]="loginFormData" (submit)="onSubmit()" class="space-y-6">
+        <div>
+          <label for="username" class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="username.touched && username.dirty && username.invalid">
+            Nom d'utilisateur
+          </label>
+          <div class="mt-2">
+            <input
+              pInputText
+              type="text"
+              id="username"
+              name="username"
+              autocomplete="username"
+              [formControl]="username"
+              [class.border-red-600!]="username.touched && username.dirty && username.invalid"
+              class="w-full"
+            />
+            @if(username.touched && username.dirty) {
+              @if(username.getError("required")) {
+                <div class="text-red-600 text-sm mt-1">Email is required!</div>
+              }
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="password.touched && password.dirty && password.invalid">Mot de passe</label>
+          <div class="mt-2">
+            <input
+              pInputText
+              type="password"
+              id="password"
+              name="password"
+              autocomplete="password"
+              [formControl]="password"
+              [class.border-red-600!]="password.touched && password.dirty && password.invalid"
+              class="w-full"
+            />
+              @if(password.touched && password.dirty) {
+                @if(password.getError("required")) {
+                <div class="text-red-600 text-sm mt-1">Password is required!</div>
+                }
+              }
+          </div>
+        </div>
+
+        <div>
+          <p-button type="submit" label="Se connecter" severity="success" [loading]="loading" />
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />

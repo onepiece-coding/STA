@@ -1,0 +1,88 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-bold tracking-tight text-gray-800">Gérer les catégories</h2>
+
+    <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+      <form (submit)="onSubmit()" class="space-y-6">
+        <div>
+          <label for="categoryName" class="block text-sm/6 font-medium text-gray-900">
+            Nom de la catégorie
+          </label>
+          <div class="mt-2">
+            <input
+              pInputText
+              id="categoryName"
+              type="text"
+              name="nameSearch"
+              [(ngModel)]="nameSearch"
+              class="w-full"
+              autocomplete="categoryName"
+            />
+          </div>
+        </div>
+
+        <div>
+          <p-button type="submit" label="Créer une catégorie" severity="success" [loading]="createLoading" />
+        </div>
+      </form>
+    </div>
+
+    @if (categories().length > 0) {
+      <div class="mt-10">
+        <p-table
+          [value]="categories()"
+          [tableStyle]="{ 'min-width': '40rem' }"
+          [size]="'large'"
+          [loading]="loading"
+        >
+          <ng-template #header>
+            <tr>
+              <th>#</th>
+              <th>Nom de la catégorie</th>
+              <th>Les produits appartiennent</th>
+              <th>Actes</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-category let-rowIndex="rowIndex">
+            <tr>
+              <td>{{ rowIndex + 1 }}</td>
+              <td>{{ category.name }}</td>
+              <td><p-button label="Link" link (onClick)="navigateWithQuery(category._id)" /></td>
+              <td>
+                <p-button icon="pi pi-trash" severity="danger" [outlined]="true" (click)="deleteConfirm($event, category._id)" />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+      <div class="mt-10">
+        <p-paginator (onPageChange)="onPageChange($event)" [first]="(currentPage()-1) * pageSize" [rows]="pageSize"
+          [totalRecords]="totalCategories()" styleClass="p-0" />
+      </div>
+    } @else {
+      <div class="mt-10">
+        <p class="text-center font-semibold tracking-tight text-red-500">
+          Aucune catégorie à afficher!
+        </p>
+      </div>
+    }
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />
+
+<p-dialog
+  header="Confirmer la suppression"
+  [(visible)]="showDeleteDialog"
+  [modal]="true"
+  [closable]="!deleteLoading"
+  [dismissableMask]="!deleteLoading"
+  [style]="{ width: '350px' }"
+>
+  <p>Êtes-vous sûr de vouloir supprimer ce catégorie?</p>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" (click)="showDeleteDialog=false" [disabled]="deleteLoading" class="p-button-text" />
+    <p-button label="Supprimer" severity="danger" (click)="onDeleteConfirmed()" [loading]="deleteLoading" />
+  </ng-template>
+</p-dialog>

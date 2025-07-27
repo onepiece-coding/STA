@@ -1,0 +1,344 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row gap-6">
+      <div class="w-full md:w-1/2">
+        <h2 class="text-2xl font-bold tracking-tight text-gray-800">
+          Gérer les {{
+            userFilter() === 'sellers' ?
+            'Vendeurs' : userFilter() === 'delivery' ?
+            'Livreurs' : 'Vendeurs Instantanés'
+          }}
+        </h2>
+      </div>
+      <div class="w-full md:w-1/2">
+        <p-select
+          [options]="usersTypes"
+          [(ngModel)]="userFilter"
+          [showClear]="false"
+          optionLabel="fr"
+          optionValue="en"
+          placeholder="Choisir le type d'utilisateur"
+          class="w-full"
+        />
+      </div>
+    </div>
+
+    <div class="mt-10 flex flex-col md:flex-row gap-6">
+      <div class="w-full md:w-1/2">
+        <input
+          pInputText
+          id="username"
+          type="text"
+          name="nameSearch"
+          [(ngModel)]="nameSearch"
+          class="w-full"
+          autocomplete="username"
+          placeholder="Nom d'utilisateur"
+        />
+      </div>
+      <div class="w-full md:w-1/2">
+        <p-button
+          class="flex-auto md:flex-initial whitespace-nowrap"
+          [label]="'Ajouter un nouvel ' + (
+            userFilter() === 'sellers' ?
+            'Vendeur' : userFilter() === 'delivery' ?
+            'Livreur' : 'Vendeur Instantané'
+          )"
+          (click)="createDialog($event)"
+          styleClass="w-full"
+        />
+      </div>
+    </div>
+
+    @if (users().length > 0) {
+      <div class="mt-10">
+        <p-table [value]="users()" [tableStyle]="{ 'min-width': '40rem' }" [size]="'large'" [loading]="loadingUsers">
+          <ng-template #header>
+            <tr>
+              <th>#</th>
+              <th>Nom d'utilisateur</th>
+              @if (userFilter() === 'delivery') { <th>Le vendeur</th> }
+              <th>Les secteurs</th>
+              <th>Actes</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-user let-rowIndex="rowIndex">
+            <tr>
+              <td>{{ rowIndex + 1 }}</td>
+              <td>{{ user.username }}</td>
+              @if (userFilter() === 'delivery') { <td>{{user.seller?.username}}</td> }
+              <td>
+                <p-button (click)="op.toggle($event)" label="Secteurs" link />
+                <p-popover #op styleClass="w-40">
+                  <div class="flex flex-col gap-4 w-[25rem]">
+                    @if (
+                      userFilter() === 'sellers' ||
+                      userFilter() === 'instant-sellers'
+                    ) {
+                      @for (sector of user.sectors; track $index) {
+                        <p>{{sector.name}}</p>
+                      }
+                    } @else {
+                      @for (sector of user.deliverySectors; track $index) {
+                        <p>{{sector.name}}</p>
+                      }
+                    }
+                  </div>
+                </p-popover>
+              </td>
+              <td class="flex flex-row-reverse md:flex-row gap-2">
+                <p-button icon="pi pi-pen-to-square" [outlined]="true" class="flex-auto md:flex-initial whitespace-nowrap"
+                  (click)="updateDialog($event, user._id)" />
+                <p-button icon="pi pi-trash" severity="danger" [outlined]="true" (click)="deleteConfirm($event, user._id)" />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+      <div class="mt-10">
+        <p-paginator
+          (onPageChange)="onPageChange($event)"
+          [first]="(currentPage()-1) * pageSize"
+          [rows]="pageSize"
+          [totalRecords]="totalUsers()"
+          styleClass="p-0"
+        />
+      </div>
+    } @else {
+    <div class="mt-10">
+      <p class="text-center font-semibold tracking-tight text-red-500">
+        Aucun utilisateur à afficher!
+      </p>
+    </div>
+    }
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />
+
+<p-dialog
+  [header]="'Ajouter un nouvel ' + (
+    userFilter() === 'sellers' ?
+    'Vendeur' : userFilter() === 'delivery' ?
+    'Livreur' : 'Vendeur Instantané'
+  )"
+  [(visible)]="showCreateDialog"
+  [modal]="true"
+  styleClass="w-[330px] md:w-[450px]"
+  [contentStyle]="{'overflow':'auto'}"
+>
+  <form [formGroup]="createUserFormData" class="space-y-6">
+    <div class="card w-full">
+      <label
+        for="selectedSectors"
+        class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="selectedSectors.touched && selectedSectors.dirty && selectedSectors.invalid"
+      >
+        Sélectionner les secteurs
+      </label>
+      <div class="mt-2">
+        <p-multiselect
+          [options]="groupedCities"
+          [group]="true"
+          [formControl]="selectedSectors"
+          placeholder="Sélectionner les secteurs"
+          scrollHeight="150px" display="chip"
+          class="w-full"
+          [loading]="loadingSectors"
+        >
+          <ng-template let-group #group>
+            <div class="flex items-center">
+              <span>{{ group.label }}</span>
+            </div>
+          </ng-template>
+        </p-multiselect>
+        @if(selectedSectors.touched && selectedSectors.dirty) {
+          @if(selectedSectors.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">
+              Vous devez sélectionner au moins une ville!
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    @if (userFilter() === 'delivery') {
+      <div class="w-full">
+        <label for="deliverySeller" class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="deliverySeller.touched && deliverySeller.dirty && deliverySeller.invalid">
+          Choisissez le vendeur
+        </label>
+        <div class="mt-2">
+          <p-select [options]="sellers()" [formControl]="deliverySeller" [showClear]="true"
+            emptyMessage="Aucun résultat trouvé" optionLabel="username" optionValue="_id"
+            placeholder="Choisir le vendeur" class="w-full" [loading]="loadingSellers" />
+          @if(deliverySeller.touched && deliverySeller.dirty) {
+          @if(deliverySeller.hasError("required")) {
+          <div class="text-red-600 text-sm mt-1">
+            Le vendeur est obligatoire!
+          </div>
+          }
+          }
+        </div>
+      </div>
+    }
+
+    <div class="w-full">
+      <label
+        for="username"
+        class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="username.touched && username.dirty && username.invalid"
+      >
+        Le nom d'utilisateur
+      </label>
+      <div class="mt-2">
+        <input
+          id="username"
+          type="text"
+          pInputText
+          [formControl]="username"
+          class="w-full"
+          [class.border-red-600!]="username.touched && username.dirty && username.invalid"
+          autocomplete="username"
+        />
+        @if(username.touched && username.dirty) {
+          @if(username.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">
+              Le nom d'utilisateur est obligatoire!
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label
+        for="password"
+        class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="password.touched && password.dirty && password.invalid"
+      >
+        Le mot de passe
+      </label>
+      <div class="mt-2">
+        <input
+          id="password"
+          type="password"
+          pInputText
+          [formControl]="password"
+          class="w-full"
+          [class.border-red-600!]="password.touched && password.dirty && password.invalid"
+          autocomplete="password"
+        />
+        @if(password.touched && password.dirty) {
+          @if(password.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">
+              Le mot de passe est obligatoire!
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Annuler"
+      severity="info"
+      (click)="showCreateDialog=false"
+      class="p-button-text"
+    />
+    <p-button
+      label="Sauvegarder"
+      severity="success"
+      (click)="onCreateConfirmed()"
+      [loading]="createLoading"
+    />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Confirmer la suppression"
+  [(visible)]="showDeleteDialog"
+  [modal]="true"
+  [closable]="!deleteLoading"
+  [dismissableMask]="!deleteLoading"
+  [style]="{ width: '350px' }"
+>
+  <p>Êtes-vous sûr de vouloir supprimer cet utilisateur?</p>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" (click)="showDeleteDialog=false" [disabled]="deleteLoading" class="p-button-text" />
+    <p-button label="Supprimer" severity="danger" (click)="onDeleteConfirmed()" [loading]="deleteLoading" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [header]="'Mettre à jour ' + (
+    userFilter() === 'sellers' ?
+    'Vendeur' : userFilter() === 'delivery' ?
+    'Livreur' : 'Vendeur Instantané'
+  )"
+  [(visible)]="showUpdateDialog"
+  [modal]="true"
+  styleClass="w-[330px] md:w-[450px]"
+  [contentStyle]="{'overflow':'visible'}"
+>
+  <form [formGroup]="updateUserFormData" class="space-y-6">
+    <div class="card w-full">
+      <label for="selectedSectorsToUpdate" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="selectedSectorsToUpdate.touched && selectedSectorsToUpdate.dirty && selectedSectorsToUpdate.invalid">
+        Sélectionner les secteurs
+      </label>
+      <div class="mt-2">
+        <p-multiselect [options]="groupedCities" [group]="true" [formControl]="selectedSectorsToUpdate" [loading]="loadingSectors"
+          placeholder="Sélectionner les secteurs" scrollHeight="150px" display="chip" class="w-full">
+          <ng-template let-group #group>
+            <div class="flex items-center">
+              <span>{{ group.label }}</span>
+            </div>
+          </ng-template>
+        </p-multiselect>
+        @if(selectedSectorsToUpdate.touched && selectedSectorsToUpdate.dirty) {
+          @if(selectedSectorsToUpdate.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">
+              Vous devez sélectionner au moins une ville!
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    @if (userFilter() === 'delivery') {
+      <div class="w-full">
+        <label for="deliverySellerToUpdate" class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="deliverySellerToUpdate.touched && deliverySellerToUpdate.dirty && deliverySellerToUpdate.invalid">
+          Choisissez le vendeur
+        </label>
+        <div class="mt-2">
+          <p-select [options]="sellers()" [formControl]="deliverySellerToUpdate" [showClear]="true"
+            emptyMessage="Aucun résultat trouvé" optionLabel="username" optionValue="_id" placeholder="Choisir le vendeur"
+            class="w-full" [loading]="loadingSellers" />
+          @if(deliverySellerToUpdate.touched && deliverySellerToUpdate.dirty) {
+            @if(deliverySellerToUpdate.hasError("required")) {
+              <div class="text-red-600 text-sm mt-1">
+                Le vendeur est obligatoire!
+              </div>
+            }
+          }
+        </div>
+      </div>
+    }
+
+    <div class="w-full">
+      <label for="passwordToUpdate" class="block text-sm/6 font-medium text-gray-900">
+        Le mot de passe
+      </label>
+      <div class="mt-2">
+        <input id="passwordToUpdate" type="password" pInputText [formControl]="passwordToUpdate" class="w-full" autocomplete="passwordToUpdate" />
+      </div>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" (click)="showUpdateDialog=false" [disabled]="updateLoading" class="p-button-text" />
+    <p-button label="Modifier" severity="danger" (click)="onUpdateConfirmed()" [loading]="updateLoading" />
+  </ng-template>
+</p-dialog>

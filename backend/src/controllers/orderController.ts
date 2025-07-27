@@ -11,9 +11,9 @@ interface OrderItemDto {
 }
 
 interface CreateOrderDto {
-  clientId:   string;
+  clientId: string;
   wantedDate: string;
-  items:      OrderItemDto[];
+  items: OrderItemDto[];
 }
 
 /**
@@ -21,16 +21,17 @@ interface CreateOrderDto {
  * @route  POST /api/v1/orders
  * @access private(delivery)
  */
-export const createOrderCtrl = asyncHandler(async (req: Request<{}, {}, CreateOrderDto>, res: Response) => {
-  const deliveryMan = req.user!._id.toString();
-  const { clientId, items, wantedDate } = req.body;
+export const createOrderCtrl = asyncHandler(
+  async (req: Request<{}, {}, CreateOrderDto>, res: Response) => {
+    const deliveryMan = req.user!._id.toString();
+    const { clientId, items, wantedDate } = req.body;
 
-  const client = await Client.findOne({ _id: clientId, deliveryMan });
-  if (!client) throw createError(404, 'Client not found or not yours');
+    const client = await Client.findOne({ _id: clientId, deliveryMan });
+    if (!client) throw createError(404, 'Client not found or not yours');
 
-  const productIds = items.map(i => i.productId);
-    const products   = await Product.find({ _id: { $in: productIds } });
-    const prodMap    = new Map(products.map(p => [p.id, p]));
+    const productIds = items.map((i) => i.productId);
+    const products = await Product.find({ _id: { $in: productIds } });
+    const prodMap = new Map(products.map((p) => [p.id, p]));
 
     for (let it of items) {
       const p = prodMap.get(it.productId);
@@ -40,154 +41,170 @@ export const createOrderCtrl = asyncHandler(async (req: Request<{}, {}, CreateOr
       if (p.currentStock < it.quantity) {
         throw createError(
           400,
-          `Insufficient stock for product "${p.name}" (have ${p.currentStock}, want ${it.quantity})`
+          `Insufficient stock for product "${p.name}" (have ${p.currentStock}, want ${it.quantity})`,
         );
       }
     }
 
-  const order = await Order.create({
-    deliveryMan,
-    seller: client.seller,
-    client: clientId,
-    items,
-    wantedDate
-  });
+    const order = await Order.create({
+      deliveryMan,
+      seller: client.seller,
+      client: clientId,
+      items,
+      wantedDate,
+    });
 
-  res.status(201).json(order);
-});
+    res.status(201).json(order);
+  },
+);
 
 /**
  * @desc   Get orders (delivery sees their own, sellers see orders for their clients)
  * @route  GET /api/v1/orders
  * @access private(delivery|seller)
  */
-export const getOrdersCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { page = '1', limit = '10', status, clientId, from, to } = req.query as Record<string,string>;
+export const getOrdersCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const {
+      page = '1',
+      limit = '10',
+      status,
+      clientId,
+      from,
+      to,
+    } = req.query as Record<string, string>;
 
-  const p = Math.max(1, parseInt(page,10));
-  const l = Math.max(1, parseInt(limit,10));
-  const skip = (p - 1)*l;
+    const p = Math.max(1, parseInt(page, 10));
+    const l = Math.max(1, parseInt(limit, 10));
+    const skip = (p - 1) * l;
 
-  // Build filter
-  const filter: any = {};
-  if (user.role === 'delivery') filter.deliveryMan = user._id;
-  if (user.role === 'seller')    filter.seller      = user._id;
-  if (status)    filter.status    = status;
-  if (clientId)  filter.client    = clientId;
-  if (from || to) {
-    filter.wantedDate = {};
-    if (from) filter.wantedDate.$gte = new Date(from);
-    if (to)   filter.wantedDate.$lte = new Date(to);
-  }
-
-  const total = await Order.countDocuments(filter);
-  const data  = await Order.find(filter)
-    .populate('client','name clientNumber')
-    .populate('deliveryMan','username')
-    .sort('-createdAt')
-    .skip(skip)
-    .limit(l)
-    .lean();
-
-  res.status(200).json({
-    data,
-    meta: {
-      total,
-      page: p,
-      limit: l,
-      totalPages: Math.ceil(total/l)
+    // Build filter
+    const filter: any = {};
+    if (user.role === 'delivery') filter.deliveryMan = user._id;
+    if (user.role === 'seller') filter.seller = user._id;
+    if (status) filter.status = status;
+    if (clientId) filter.client = clientId;
+    if (from || to) {
+      filter.wantedDate = {};
+      if (from) filter.wantedDate.$gte = new Date(from);
+      if (to) filter.wantedDate.$lte = new Date(to);
     }
-  });
-});
+
+    const total = await Order.countDocuments(filter);
+    const data = await Order.find(filter)
+      .populate('deliveryMan', 'username')
+      .populate('seller', 'username')
+      .populate('client', 'name clientNumber')
+      .populate('items.productId', 'name')
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(l)
+      .lean();
+
+    res.status(200).json({
+      data,
+      meta: {
+        total,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(total / l),
+      },
+    });
+  },
+);
 
 /**
  * @desc   Seller or Delivery fetch a single order by ID
  * @route  GET /api/v1/orders/:id
  * @access private(delivery|seller)
  */
-export const getOrderByIdCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { id } = req.params;
+export const getOrderByIdCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { id } = req.params;
 
-  const filter: any = { _id: id };
-  if (user.role === 'delivery') filter.deliveryMan = user._id;
-  if (user.role === 'seller')    filter.seller      = user._id;
+    const filter: any = { _id: id };
+    if (user.role === 'delivery') filter.deliveryMan = user._id;
+    if (user.role === 'seller') filter.seller = user._id;
 
-  const order = await Order.findOne(filter)
-    .populate('client','_id name clientNumber')
-    .populate('deliveryMan','username')
-    .lean();
+    const order = await Order.findOne(filter)
+      .populate('client', '_id name clientNumber')
+      .populate('deliveryMan', 'username')
+      .lean();
 
-  if (!order) throw createError(404, 'Order not found');
-  res.status(200).json(order);
-});
-
+    if (!order) throw createError(404, 'Order not found');
+    res.status(200).json(order);
+  },
+);
 
 /**
  * @desc    Update an existing order
  * @route   PATCH /api/v1/orders/:id
  * @access  private (delivery or seller)
  */
-export const updateOrderCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { id } = req.params;
+export const updateOrderCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { id } = req.params;
 
-  // 1) Fetch the order
-  const order = await Order.findById(id);
-  if (!order) throw createError(404, 'Order not found');
+    // 1) Fetch the order
+    const order = await Order.findById(id);
+    if (!order) throw createError(404, 'Order not found');
 
-  // 2) Ownership / role check
-  if (user.role === 'delivery' && !order.deliveryMan.equals(user._id)) {
-    throw createError(403, 'Not your order');
-  }
-  if (user.role === 'seller' && !order.seller.equals(user._id)) {
-    throw createError(403, 'Not your order');
-  }
-
-  // 3) Apply allowed updates
-  //  - delivery can change wantedDate, status
-  //  - seller can only change status (e.g. to 'cancelled' or 'done')
-  if (req.body.wantedDate && user.role === 'delivery') {
-    order.wantedDate = new Date(req.body.wantedDate);
-  }
-  if (req.body.status) {
-    // both roles may update status, but enforce valid enum
-    const valid = ['pending','done','cancelled'];
-    if (!valid.includes(req.body.status)) {
-      throw createError(400, 'Invalid status value');
+    // 2) Ownership / role check
+    if (user.role === 'delivery' && !order.deliveryMan.equals(user._id)) {
+      throw createError(403, 'Not your order');
     }
-    order.status = req.body.status;
-  }
+    if (user.role === 'seller' && !order.seller.equals(user._id)) {
+      throw createError(403, 'Not your order');
+    }
 
-  // 4) Save & respond
-  await order.save();
-  res.status(200).json(order);
-});
+    // 3) Apply allowed updates
+    //  - delivery can change wantedDate, status
+    //  - seller can only change status (e.g. to 'cancelled' or 'done')
+    if (req.body.wantedDate && user.role === 'delivery') {
+      order.wantedDate = new Date(req.body.wantedDate);
+    }
+    if (req.body.status) {
+      // both roles may update status, but enforce valid enum
+      const valid = ['pending', 'done', 'cancelled'];
+      if (!valid.includes(req.body.status)) {
+        throw createError(400, 'Invalid status value');
+      }
+      order.status = req.body.status;
+    }
 
+    // 4) Save & respond
+    await order.save();
+    res.status(200).json(order);
+  },
+);
 
 /**
  * @desc    Delete an order
  * @route   DELETE /api/v1/orders/:id
  * @access  private (delivery or seller)
  */
-export const deleteOrderCtrl = asyncHandler(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { id } = req.params;
+export const deleteOrderCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { id } = req.params;
 
-  // 1) Find the order
-  const order = await Order.findById(id);
-  if (!order) throw createError(404, 'Order not found');
+    // 1) Find the order
+    const order = await Order.findById(id);
+    if (!order) throw createError(404, 'Order not found');
 
-  // 2) Ownership check
-  if (user.role === 'delivery' && !order.deliveryMan.equals(user._id)) {
-    throw createError(403, 'Not your order');
-  }
-  if (user.role === 'seller' && !order.seller.equals(user._id)) {
-    throw createError(403, 'Not your order');
-  }
+    // 2) Ownership check
+    if (user.role === 'delivery' && !order.deliveryMan.equals(user._id)) {
+      throw createError(403, 'Not your order');
+    }
+    if (user.role === 'seller' && !order.seller.equals(user._id)) {
+      throw createError(403, 'Not your order');
+    }
 
-  // 3) Delete
-  await order.deleteOne();
-  res.status(200).json({ message: 'Order deleted' });
-});
+    // 3) Delete
+    await order.deleteOne();
+    res.status(200).json({ message: 'Order deleted' });
+  },
+);

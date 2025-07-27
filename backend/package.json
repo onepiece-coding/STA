@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc -w",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "dev": "tsx watch src/server.ts",
     "lint": "eslint . --ext .ts"
   },

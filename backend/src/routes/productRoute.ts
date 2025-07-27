@@ -28,7 +28,10 @@ router
     ...validateCreateProduct,
     createProductCtrl,
   )
-  .get(authorizeRoles('admin', 'seller', 'instant'), getProductsCtrl);
+  .get(
+    authorizeRoles('admin', 'seller', 'instant', 'delivery'),
+    getProductsCtrl,
+  );
 
 // /api/v1/products/discounts
 router.get(

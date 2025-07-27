@@ -1,0 +1,213 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-bold tracking-tight text-gray-800">Ajouter un nouveau client</h2>
+
+    <div class="mt-10 w-full">
+      <form [formGroup]="createClientFormData" (submit)="onSubmit()" class="space-y-6">
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label for="image" class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="image.touched && image.dirty && image.invalid">Choisir une image</label>
+            <div class="mt-2">
+              <input
+                type="file"
+                name="image"
+                id="image"
+                (change)="onFileSelected($event)"
+                [class.border-red-600!]="image.touched && image.dirty && image.invalid"
+                class="block w-full border border-slate-300 hover:border-slate-400 rounded-md text-base focus:z-10 focus:border-teal-600 focus:ring-teal-600 disabled:opacity-50 disabled:pointer-events-none file:bg-gray-50 file:border-0 file:me-4 file:py-[0.5rem] file:px-4"
+              >
+              @if(image.touched && image.dirty) {
+                @if(image.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">L'image du client est obligatoire!</div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="w-full md:w-1/2">
+            <label for="name" class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="name.touched && name.dirty && name.invalid">Le nom du client</label>
+            <div class="mt-2">
+              <input id="name" type="text" pInputText [formControl]="name" class="w-full"
+                [class.border-red-600!]="name.touched && name.dirty && name.invalid" autocomplete="name" />
+              @if(name.touched && name.dirty) {
+                @if(name.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">Le nom du client est obligatoire!</div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="location.touched && location.dirty && location.invalid">
+              L'emplacement du client
+            </label>
+            <div class="mt-2">
+              <input
+                id="location"
+                type="text"
+                pInputText
+                [formControl]="location"
+                class="w-full"
+                [class.border-red-600!]="location.touched && location.dirty && location.invalid"
+                autocomplete="location"
+              />
+              @if(location.touched && location.dirty) {
+                @if(location.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">L'emplacement du client est est obligatoire!</div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="w-full md:w-1/2">
+            <label for="phoneNumber" class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="phoneNumber.touched && phoneNumber.dirty && phoneNumber.invalid">
+              Le numéro de téléphone
+            </label>
+            <div class="mt-2">
+              <input id="phoneNumber" type="string" pInputText [formControl]="phoneNumber" class="w-full"
+                [class.border-red-600!]="phoneNumber.touched && phoneNumber.dirty && phoneNumber.invalid" />
+              @if(phoneNumber.touched && phoneNumber.dirty) {
+                @if(phoneNumber.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le numéro de téléphone est obligatoire!
+                  </div>
+                } @else if(phoneNumber.hasError("pattern")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le numéro de téléphone n'est pas valide!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="city.touched && city.dirty && city.invalid">Choisissez la ville
+            </label>
+            <div class="mt-2">
+              <p-select
+                [options]="cities()"
+                [formControl]="city" [showClear]="true"
+                emptyMessage="Aucun résultat trouvé"
+                optionLabel="name"
+                placeholder="Choisissez la ville" class="w-full"
+                [loading]="loadingCities"
+                (onChange)="onChange()"
+                (onClear)="onClear()"
+              />
+              @if(city.touched && city.dirty) {
+                @if(city.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    La ville du client est obligatoire!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+          <div class="w-full md:w-1/2">
+            <label class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="sector.touched && sector.dirty && sector.invalid">
+              Choisissez le secteur
+            </label>
+            <div class="mt-2">
+              <p-select
+                [options]="sectors()"
+                [formControl]="sector"
+                [showClear]="false"
+                emptyMessage="Aucun résultat trouvé"
+                optionLabel="name"
+                placeholder="Choisissez le secteur"
+                class="w-full"
+                [loading]="loadingSectors"
+              />
+              @if(sector.touched && sector.dirty) {
+              @if(sector.hasError("required")) {
+                <div class="text-red-600 text-sm mt-1">
+                  Le secteur du client est obligatoire!
+                </div>
+              }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+          <div class="w-full md:w-1/2">
+            <label
+              class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="deliveryMan.touched && deliveryMan.dirty && deliveryMan.invalid"
+            >
+              Choisissez le livreur qui servira le client
+            </label>
+            <div class="mt-2">
+              <p-select
+                [options]="deliveries()"
+                [formControl]="deliveryMan"
+                [showClear]="true"
+                emptyMessage="Aucun résultat trouvé"
+                optionLabel="username"
+                placeholder="Choisissez le livreur"
+                class="w-full"
+                [loading]="loadingDeliveries"
+              />
+              @if(deliveryMan.touched && deliveryMan.dirty) {
+                @if(deliveryMan.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le livreur qui servira le client est est obligatoire!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="w-full md:w-1/2">
+            <label
+              for="typeOfBusiness"
+              class="block text-sm/6 font-medium text-gray-900"
+              [class.text-red-600!]="typeOfBusiness.touched && typeOfBusiness.dirty && typeOfBusiness.invalid"
+            >
+              Le type d'entreprise du client
+            </label>
+            <div class="mt-2">
+              <input
+                id="typeOfBusiness"
+                type="text"
+                pInputText
+                [formControl]="typeOfBusiness"
+                class="w-full"
+                [class.border-red-600!]="typeOfBusiness.touched && typeOfBusiness.dirty && typeOfBusiness.invalid"
+              />
+              @if(typeOfBusiness.touched && typeOfBusiness.dirty) {
+                @if(typeOfBusiness.hasError("required")) {
+                  <div class="text-red-600 text-sm mt-1">
+                    Le type d'entreprise du client est obligatoire!
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p-button
+            type="submit"
+            label="Créer un client"
+            severity="success"
+            [loading]="createLoading"
+          />
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />

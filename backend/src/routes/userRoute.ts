@@ -15,13 +15,13 @@ import {
   getInstantSellersCtrl,
   updateInstantSellerCtrl,
   deleteInstantSellerCtrl,
+  createInstantSellerCtrl,
 } from '../controllers/userController.js';
 import {
   validateCreateSeller,
   validateCreateDelivery,
 } from '../validations/userValidations.js';
 import { validateObjectIdParam } from '../validations/validateObjectId.js';
-import { createInstantSaleCtrl } from '../controllers/instantSaleController.js';
 
 const router = Router();
 router.use(authenticateUser);
@@ -59,7 +59,7 @@ router
 router
   .route('/instant-sellers')
   .all(authorizeRoles('admin'))
-  .post(...validateCreateSeller, createInstantSaleCtrl)
+  .post(...validateCreateSeller, createInstantSellerCtrl)
   .get(getInstantSellersCtrl);
 
 // /api/v1/users/instant-seller/:id
@@ -69,6 +69,5 @@ router
   .get(authorizeRoles('admin'), getInstantSellerByIdCtrl)
   .patch(authorizeRoles('admin'), updateInstantSellerCtrl)
   .delete(authorizeRoles('admin'), deleteInstantSellerCtrl);
-
 
 export default router;

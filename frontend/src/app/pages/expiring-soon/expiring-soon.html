@@ -1,0 +1,78 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-bold tracking-tight text-gray-800">
+      Les produits expirés
+    </h2>
+
+    <div class="mt-10 flex flex-col items-end md:flex-row gap-6">
+      <div class="w-full md:w-1/3">
+        <label for="minQty" class="block text-sm/6 font-medium text-gray-900">
+          Expire dans la quantité minimale
+        </label>
+        <div class="mt-2">
+          <input
+            pInputText
+            id="minQty"
+            type="number"
+            [(ngModel)]="minQty"
+            class="w-full"
+            autocomplete="minQty"
+          />
+        </div>
+      </div>
+      <div class="w-full md:w-1/3">
+        <label for="days" class="block text-sm/6 font-medium text-gray-900">
+          Expire dans les N jours
+        </label>
+        <div class="mt-2">
+          <input pInputText id="days" type="number" [(ngModel)]="days" class="w-full"
+            autocomplete="days" />
+        </div>
+      </div>
+      <div class="w-full md:w-1/3">
+        <p-button
+          label="Filtre"
+          severity="success"
+          [loading]="loading"
+          styleClass="w-full"
+          [disabled]="loading || minQty() <= 0 || days() <= 0"
+          (onClick)="loadExpiringSoonAlerts(days(), minQty())"
+        />
+      </div>
+    </div>
+
+    @if (alerts().length > 0) {
+      <div class="mt-10">
+        <p-table [value]="alerts()" [tableStyle]="{ 'min-width': '40rem', 'white-space': 'nowrap' }" [size]="'large'">
+          <ng-template #header>
+            <tr>
+              <th>#</th>
+              <th>Nom de la produit</th>
+              <th>Photo du produit</th>
+              <th>Prochaine expiration</th>
+              <th>Quantité restante</th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-alert let-rowIndex="rowIndex">
+            <tr>
+              <td>{{ rowIndex + 1 }}</td>
+              <td>{{ alert.name }}</td>
+              <td>
+                <img [src]="alert.photo.url" [alt]="alert.name" class="w-24 rounded" />
+              </td>
+              <td>{{ alert.nextExpiry | date : 'dd/MM/yyyy' }}</td>
+              <td>{{ alert.remainingQty }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+    } @else {
+      <div class="mt-10">
+        <p class="text-center font-semibold tracking-tight text-red-500">
+          Aucun résultat à afficher
+        </p>
+      </div>
+    }
+  </div>
+</section>

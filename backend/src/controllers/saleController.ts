@@ -42,11 +42,11 @@ export const createSaleCtrl = asyncHandler(
     const client = await Client.findOne({ _id: clientId, seller });
     if (!client) throw createError(404, 'Client not found');
 
-    const productIds = items.map(it => it.productId);
+    const productIds = items.map((it) => it.productId);
     const products = await Product.find({ _id: { $in: productIds } });
 
-    const prodMap = new Map<string, typeof products[number]>(
-      products.map(p => [p.id, p])
+    const prodMap = new Map<string, (typeof products)[number]>(
+      products.map((p) => [p.id, p]),
     );
 
     const deliveryMan = client.deliveryMan;
@@ -73,33 +73,53 @@ export const createSaleCtrl = asyncHandler(
       const total = unitPrice * it.quantity;
       totalAmount += total;
 
-      lineItems.push({ 
-        productId: p._id, soldBy: it.soldBy, quantity: it.quantity,
-        discount, unitPrice, total 
+      lineItems.push({
+        productId: p._id,
+        soldBy: it.soldBy,
+        quantity: it.quantity,
+        discount,
+        unitPrice,
+        total,
       });
     }
 
     for (let it of lineItems) {
       let remainingToDeduct = it.quantity;
-      const supplies = await Supply
-        .find({ productId: it.productId, remainingQty: { $gt: 0 } })
+      const supplies = await Supply.find({
+        productId: it.productId,
+        remainingQty: { $gt: 0 },
+      })
         .sort('expiringAt')
         .exec();
-  
+
       for (let sup of supplies) {
-        const take = Math.min(sup.remainingQty, remainingToDeduct);
-        sup.remainingQty -= take;
-        remainingToDeduct -= take;
-        await sup.save();
         if (remainingToDeduct === 0) break;
+        const take = Math.min(sup.remainingQty, remainingToDeduct);
+        // atomic per‑batch update too, so concurrent returns/sales can’t race
+        const supRes = await Supply.updateOne(
+          { _id: sup._id, remainingQty: { $gte: take } },
+          { $inc: { remainingQty: -take } },
+        );
+        if (supRes.modifiedCount !== 1) {
+          throw createError(
+            400,
+            `Batch stock changed mid‐sale for product ${it.productId}`,
+          );
+        }
+        remainingToDeduct -= take;
       }
 
-      await Product.updateOne(
-        { _id: it.productId },
-        { $inc: { currentStock: -it.quantity } }
+      const prodRes = await Product.updateOne(
+        { _id: it.productId, currentStock: { $gte: it.quantity } },
+        { $inc: { currentStock: -it.quantity } },
       );
+      if (prodRes.modifiedCount !== 1) {
+        throw createError(
+          400,
+          `Insufficient stock for product ${it.productId}`,
+        );
+      }
     }
-
 
     // Sale number
     const saleNumber = await makeSaleNumber();
@@ -137,6 +157,8 @@ export const updateSaleCtrl = asyncHandler(
     const sale = await Sale.findById(req.params.id);
     if (!sale) throw createError(404, 'Sale not found');
 
+    console.log(req.body.return?.returnItems);
+
     // 1) Update deliveryStatus
     if (req.body.deliveryStatus) {
       sale.deliveryStatus = req.body.deliveryStatus;
@@ -171,23 +193,38 @@ export const updateSaleCtrl = asyncHandler(
       // Replenish stock for each returned line
       for (let it of newReturns) {
         let ToAdd = it.quantity;
-        const supplies = await Supply
-          .find({ productId: it.productId})
+        const supplies = await Supply.find({ productId: it.productId })
           .sort('-expiringAt')
           .exec();
-    
+
         for (let sup of supplies) {
-          const take = Math.min((sup.quantity - sup.remainingQty), ToAdd);
-          sup.remainingQty += take;
-          ToAdd -= take;
-          await sup.save();
           if (ToAdd === 0) break;
+          const take = Math.min(sup.quantity - sup.remainingQty, ToAdd);
+          if (take === 0) continue;
+          const supRes = await Supply.updateOne(
+            { _id: sup._id, remainingQty: { $lte: sup.quantity - take } },
+            { $inc: { remainingQty: take } },
+          );
+          if (supRes.modifiedCount !== 1) {
+            throw createError(
+              400,
+              `Cannot return ${take} to batch ${sup._id} (concurrent modification)`,
+            );
+          }
+
+          ToAdd -= take;
         }
 
-        await Product.updateOne(
+        const prodRes = await Product.updateOne(
           { _id: it.productId },
           { $inc: { currentStock: it.quantity } },
         );
+        if (prodRes.modifiedCount !== 1) {
+          throw createError(
+            500,
+            `Failed to increment stock for ${it.productId}`,
+          );
+        }
       }
 
       sale.return.returnItems = newReturns;
@@ -220,6 +257,13 @@ export const updateSaleCtrl = asyncHandler(
       sale.totalAmount - sale.return.returnTotal - sale.returnGlobal;
 
     await sale.save();
+
+    // now repopulate the returnItems.productId
+    await sale.populate({
+      path: 'return.returnItems.productId',
+      select: '_id name',
+    });
+
     res.status(200).json(sale);
   },
 );
@@ -249,7 +293,10 @@ export const getSalesCtrl = asyncHandler(
     } = req.query as Record<string, string>;
 
     if (!from || !to) {
-      throw createError(400, '`from` and `to` query parameters are both required');
+      throw createError(
+        400,
+        '`from` and `to` query parameters are both required',
+      );
     }
 
     // Pagination defaults
@@ -259,7 +306,8 @@ export const getSalesCtrl = asyncHandler(
 
     // Build filter
     const filter: any = {};
-    if (user.role === 'seller' || user.role === 'instant') filter.seller = user._id;
+    if (user.role === 'seller' || user.role === 'instant')
+      filter.seller = user._id;
     if (user.role === 'delivery') filter.deliveryMan = user._id;
     if (status) filter.deliveryStatus = status;
     if (clientId) filter.client = clientId;
@@ -277,7 +325,10 @@ export const getSalesCtrl = asyncHandler(
     // Fetch page
     const data = await Sale.find(filter)
       .populate('client', 'name clientNumber')
-      .populate('items.productId', 'name')
+      .populate('seller', 'username')
+      .populate('deliveryMan', 'username')
+      .populate('items.productId', '_id name')
+      .populate('return.returnItems.productId', '_id name')
       .sort('-date')
       .skip(skip)
       .limit(limit)
@@ -303,7 +354,8 @@ export const getSaleByIdCtrl = asyncHandler(
     const user = req.user!;
     const filter: any = {};
     filter._id = req.params.id;
-    if (user.role === 'seller' || user.role === 'instant') filter.seller = user._id;
+    if (user.role === 'seller' || user.role === 'instant')
+      filter.seller = user._id;
     if (user.role === 'delivery') filter.deliveryMan = user._id;
     const sale = await Sale.findOne(filter)
       .populate('client', 'name clientNumber')

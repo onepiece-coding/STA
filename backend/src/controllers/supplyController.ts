@@ -63,7 +63,7 @@ export const lowStockAlertsCtrl = asyncHandler(
     const results = lowStockProducts.map((p) => ({
       productId: p._id,
       name: p.name,
-      remaining: p.currentStock,
+      remainingQty: p.currentStock,
       photo: p.pictureUrl,
     }));
 

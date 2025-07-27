@@ -57,7 +57,7 @@ export const getProductsCtrl = asyncHandler(
     const total = await Product.countDocuments(filter);
 
     const data = await Product.find(filter)
-      .populate('categoryId', 'name')
+      .populate('categoryId', 'name _id')
       .skip((page - 1) * limit)
       .limit(limit);
 
@@ -133,7 +133,7 @@ export const getDiscountedProductsCtrl = asyncHandler(
 
 /**--------------------------------------
  * @desc    Update Product
- * @route   /api/v1/product/:id
+ * @route   /api/v1/products/:id
  * @method  PATCH
  * @access  private (admin)
 -----------------------------------------*/

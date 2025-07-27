@@ -20,7 +20,7 @@ export const getStatsCtrl = asyncHandler(
       if (to) match.date.$lte = new Date(to);
     }
     if (user.role === 'seller' || user.role === 'instant') {
-      // sellers only see their own sales
+      // only see their own sales
       match.seller = user._id;
     } else if (sellerId) {
       // admin may filter by specific seller

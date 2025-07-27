@@ -120,8 +120,8 @@ export const getClientsCtrl = asyncHandler(
   async (req: Request, res: Response) => {
     const user = req.user!;
 
-    const page = parseInt(req.query.page as string, 10) || 1;
-    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const pageFromReq = req.query.page as string | undefined;
+    const limitFromReq = req.query.limit as string | undefined;
     const sectorId = req.query.sectorId as string | undefined;
     const cityId = req.query.cityId as string | undefined;
     const clientNumber = req.query.clientNumber as string | undefined;
@@ -147,32 +147,44 @@ export const getClientsCtrl = asyncHandler(
       filter.sector = { $in: sectorIds };
     }
 
-    if(clientNumber){
-      filter.clientNumber = req.params.clientNumber;
+    if (clientNumber) {
+      filter.clientNumber = clientNumber;
     }
 
     const total = await Client.countDocuments(filter);
 
-    const data = await Client.find(filter)
+    let query = Client.find(filter)
       .populate('sector', 'name')
       .populate('seller', 'username')
       .populate('deliveryMan', 'username')
       .populate('city', 'name')
-      .skip((page - 1) * limit)
-      .limit(limit)
       .lean();
 
-    const totalPages = Math.ceil(total / limit);
+    let page: number | null = null;
+    let limit: number | null = null;
+    let totalPages: number | null = null;
 
-    res.status(200).json({
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages,
-      },
-    });
+    if (pageFromReq != null && limitFromReq != null) {
+      page = parseInt(pageFromReq, 10);
+      limit = parseInt(limitFromReq, 10);
+
+      if (page < 1) page = 1;
+      if (limit < 1) limit = 10;
+
+      query = query.skip((page - 1) * limit).limit(limit);
+      totalPages = Math.ceil(total / limit);
+    }
+
+    const data = await query;
+
+    const meta: Record<string, any> = { total };
+    if (page != null && limit != null) {
+      meta.page = page;
+      meta.limit = limit;
+      meta.totalPages = totalPages;
+    }
+
+    res.status(200).json({ data, meta });
   },
 );
 

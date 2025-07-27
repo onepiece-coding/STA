@@ -1,0 +1,65 @@
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-center text-2xl font-bold tracking-tight text-gray-800">
+      Les promotions
+    </h2>
+
+    <div class="card mt-10">
+      <p-dataview #dv
+        [value]="discountedProducts()"
+        [emptyMessage]="loadingDiscountedProducts ? 'Chargement des produits, veuillez patienter' : 'Aucun résultat trouvé'"
+      >
+        <ng-template #list let-products>
+          <div class="grid grid-cols-12 gap-4 grid-nogutter">
+            <div class="col-span-12" *ngFor="let product of products; let first = first" class="col-span-12">
+              <div class="flex flex-col sm:flex-row sm:items-center p-6 gap-4"
+                [ngClass]="{ 'border-t border-surface-200 dark:border-surface-700': !first }">
+                <div class="md:w-40 relative overflow-hidden">
+                  <img [src]="product.pictureUrl.url" [alt]="product.name" class="block rounded-md w-full" />
+                  <p-tag [value]="'stock actuel: ' + product.currentStock"
+                    [severity]="getSeverity(product.currentStock)" class="absolute dark:!bg-surface-900"
+                    [style.left.px]="4" [style.top.px]="4" />
+                </div>
+                <div class="flex flex-col md:flex-row justify-between md:items-center flex-1 gap-6">
+                  <div class="flex flex-row md:flex-col justify-between items-start gap-2">
+                    <div>
+                      <span class="font-medium text-secondary text-sm">
+                        {{product.categoryId.name}}
+                      </span>
+                      <div class="text-lg font-medium text-surface-900 dark:text-surface-0 mt-2">{{ product.name }}
+                      </div>
+                    </div>
+                    <div class="bg-surface-100 dark:bg-surface-700 p-1" style="border-radius: 30px">
+                      <div class="bg-surface-0 dark:bg-surface-900 flex items-center gap-2 justify-center py-1 px-2"
+                        style="border-radius: 30px; box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.04), 0px 1px 2px 0px rgba(0, 0, 0, 0.06)">
+                          <span class="text-surface-900 dark:text-surface-0 font-medium text-sm">
+                            {{product.globalDiscountPercent}}
+                          </span>
+                          <i class="pi pi-percentage text-yellow-500"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col md:items-end gap-8">
+                    <span class="text-xl font-semibold text-surface-900 dark:text-surface-0">{{product.unitPrice + 'DH'}}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </p-dataview>
+    </div>
+
+    @if (discountedProducts().length > 0) {
+      <div class="mt-10">
+        <p-paginator
+          (onPageChange)="onPageChange($event)"
+          [first]="(currentPage()-1) * pageSize"
+          [rows]="pageSize"
+          [totalRecords]="totalDiscountedProducts()"
+          styleClass="p-0"
+        />
+      </div>
+    }
+  </div>
+</section>

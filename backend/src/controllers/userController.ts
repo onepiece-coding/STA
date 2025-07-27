@@ -15,12 +15,13 @@ export const createSellerCtrl = asyncHandler(
     const { username, password, sectors } = req.body;
     if (await User.findOne({ username }))
       throw createError(409, 'Username taken');
-    const seller = await User.create({
+    const seller = await new User({
       username,
       password,
       role: 'seller',
       sectors,
-    });
+    }).populate('sectors', 'name');
+    await seller.save();
     seller.password = undefined!;
     res.status(201).json(seller);
   },
@@ -32,44 +33,54 @@ export const createSellerCtrl = asyncHandler(
  * @method  GET
  * @access  private (admin)
 -----------------------------------------*/
-export const getSellersCtrl = asyncHandler(async (req: Request, res: Response) => {
-  // Read query params
-  const page     = parseInt(req.query.page  as string, 10) || 1;
-  const limit    = parseInt(req.query.limit as string, 10) || 10;
-  const search   = (req.query.search  as string) ?? '';
+export const getSellersCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    const pageFromReq = req.query.page as string | undefined;
+    const limitFromReq = req.query.limit as string | undefined;
+    const search = (req.query.search as string) ?? undefined;
 
-  // Build filter
-  const filter: Record<string, any> = { role: 'seller' };
-  if (search) {
-    filter.username = { $regex: search, $options: 'i' };
-  }
-
-  // Count total matching documents
-  const total = await User.countDocuments(filter);
-
-  // Query page of sellers
-  const sellers = await User.find(filter)
-    .select('-password -__v')
-    .populate('sectors', 'name')
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .sort('username')
-    .lean();
-
-  // Prepare metadata
-  const totalPages = Math.ceil(total / limit);
-
-  // Return
-  res.status(200).json({
-    data: sellers,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages
+    // Build filter
+    const filter: Record<string, any> = { role: 'seller' };
+    if (search) {
+      filter.username = { $regex: search, $options: 'i' };
     }
-  });
-});
+
+    // Count total matching documents
+    const total = await User.countDocuments(filter);
+
+    let query = User.find(filter)
+      .select('-password -__v')
+      .populate('sectors', 'name')
+      .sort('username')
+      .lean();
+
+    let page: number | null = null;
+    let limit: number | null = null;
+    let totalPages: number | null = null;
+
+    if (pageFromReq != null && limitFromReq != null) {
+      page = parseInt(pageFromReq, 10);
+      limit = parseInt(limitFromReq, 10);
+
+      if (page < 1) page = 1;
+      if (limit < 1) limit = 10;
+
+      query = query.skip((page - 1) * limit).limit(limit);
+      totalPages = Math.ceil(total / limit);
+    }
+
+    const data = await query;
+
+    const meta: Record<string, any> = { total };
+    if (page != null && limit != null) {
+      meta.page = page;
+      meta.limit = limit;
+      meta.totalPages = totalPages;
+    }
+
+    res.status(200).json({ data, meta });
+  },
+);
 
 /**
  * @desc    Get a single seller by ID
@@ -110,7 +121,7 @@ export const updateSellerCtrl = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const seller = await User.findById(id);
+    const seller = await User.findById(id).populate('sectors', 'name');
     if (!seller || seller.role !== 'seller')
       throw createError(404, 'Seller not found');
 
@@ -169,15 +180,19 @@ export const createDeliveryCtrl = asyncHandler(
       sectors = parent.sectors!;
     }
 
-    const delivery = await User.create({
+    const delivery = await new User({
       username,
       password,
       role: 'delivery',
       seller,
       deliverySectors: sectors,
       canInstantSales: !!canInstantSales,
-    });
+    }).populate([
+      { path: 'deliverySectors', select: 'name' },
+      { path: 'seller', select: 'username' },
+    ]);
 
+    await delivery.save();
     delivery.password = undefined!;
 
     res.status(201).json(delivery);
@@ -192,10 +207,10 @@ export const createDeliveryCtrl = asyncHandler(
 --------------------------------------------*/
 export const getDeliveryCtrl = asyncHandler(
   async (req: Request, res: Response) => {
-    const page       = parseInt(req.query.page as string, 10) || 1;
-    const limit      = parseInt(req.query.limit as string, 10) || 10;
-    const search     = (req.query.search    as string) ?? '';
-    const sellerId   = (req.query.sellerId  as string) ?? '';
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const search = (req.query.search as string) ?? '';
+    const sellerId = (req.query.sellerId as string) ?? '';
 
     const filter: any = { role: 'delivery' };
 
@@ -230,12 +245,11 @@ export const getDeliveryCtrl = asyncHandler(
         total,
         page,
         limit,
-        totalPages
-      }
+        totalPages,
+      },
     });
-  }
+  },
 );
-
 
 /**
  * @desc    Get a single delivery user by ID
@@ -277,7 +291,12 @@ export const updateDeliveryCtrl = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const delivery = await User.findOne({ _id: id, role: 'delivery' });
+    const delivery = await User.findOne({ _id: id, role: 'delivery' }).populate(
+      [
+        { path: 'deliverySectors', select: 'name' },
+        { path: 'seller', select: 'username' },
+      ],
+    );
     if (!delivery) throw createError(404, 'Delivery user not found');
 
     const updates: Partial<Record<string, any>> = {};
@@ -334,12 +353,13 @@ export const createInstantSellerCtrl = asyncHandler(
     const { username, password, sectors } = req.body;
     if (await User.findOne({ username }))
       throw createError(409, 'Username taken');
-    const seller = await User.create({
+    const seller = await new User({
       username,
       password,
       role: 'instant',
       sectors,
-    });
+    }).populate('sectors', 'name');
+    await seller.save();
     seller.password = undefined!;
     res.status(201).json(seller);
   },
@@ -351,48 +371,50 @@ export const createInstantSellerCtrl = asyncHandler(
  * @method  GET
  * @access  private (admin)
 -----------------------------------------*/
-export const getInstantSellersCtrl = asyncHandler(async (req: Request, res: Response) => {
-  // Read query params
-  const page     = parseInt(req.query.page  as string, 10) || 1;
-  const limit    = parseInt(req.query.limit as string, 10) || 10;
-  const search   = (req.query.search  as string) ?? '';
+export const getInstantSellersCtrl = asyncHandler(
+  async (req: Request, res: Response) => {
+    // Read query params
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const search = (req.query.search as string) ?? '';
 
-  // Build filter
-  const filter: Record<string, any> = { role: 'instant' };
-  if (search) {
-    filter.username = { $regex: search, $options: 'i' };
-  }
-
-  // Count total matching documents
-  const total = await User.countDocuments(filter);
-
-  // Query page of sellers
-  const instant = await User.find(filter)
-    .select('-password -__v')
-    .populate('sectors', 'name')
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .sort('username')
-    .lean();
-
-  // Prepare metadata
-  const totalPages = Math.ceil(total / limit);
-
-  // Return
-  res.status(200).json({
-    data: instant,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages
+    // Build filter
+    const filter: Record<string, any> = { role: 'instant' };
+    if (search) {
+      filter.username = { $regex: search, $options: 'i' };
     }
-  });
-});
+
+    // Count total matching documents
+    const total = await User.countDocuments(filter);
+
+    // Query page of sellers
+    const instant = await User.find(filter)
+      .select('-password -__v')
+      .populate('sectors', 'name')
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort('username')
+      .lean();
+
+    // Prepare metadata
+    const totalPages = Math.ceil(total / limit);
+
+    // Return
+    res.status(200).json({
+      data: instant,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    });
+  },
+);
 
 /**
  * @desc    Get a single instant seller by ID
- * @route   GET /api/v1/user/sellers/:id
+ * @route   GET /api/v1/user/instant-sellers/:id
  * @access  private (admin or the seller themselves)
  */
 export const getInstantSellerByIdCtrl = asyncHandler(
@@ -429,7 +451,7 @@ export const updateInstantSellerCtrl = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const instant = await User.findById(id);
+    const instant = await User.findById(id).populate('sectors', 'name');
     if (!instant || instant.role !== 'instant')
       throw createError(404, 'Instant Seller not found');
 

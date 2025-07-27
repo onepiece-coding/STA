@@ -1,0 +1,32 @@
+
+<header class="bg-slate-100">
+  <div class="mx-auto flex h-16 max-w-screen-xl items-center justify-between gap-8 px-4 sm:px-6 lg:px-8">
+    <p-button (click)="visible = true" icon="pi pi-bars" [rounded]="true" severity="success" [outlined]="true" />
+
+    <h1 class="text-xl max-sm:text-base font-semibold tracking-tight text-gray-800 uppercase">
+      AMJ distribution
+    </h1>
+
+    <p-button (click)="authService.logout()" icon="pi pi-sign-out" [rounded]="true" severity="danger" [outlined]="true" />
+  </div>
+</header>
+
+<p-drawer [(visible)]="visible"
+  [header]="`${authService.currentUserSignal()?.username} (${translatedRole()})`" [style]="{ width: '350px' }"
+>
+  <ul class="space-y-2 font-medium">
+    @for (sidebarItem of sidebarItems; track $index) {
+      <li>
+        <a
+          [routerLink]="sidebarItem.href"
+          [routerLinkActive]="'bg-teal-100'"
+          class="flex items-center p-2 text-gray-800 rounded-lg hover:bg-teal-100 tracking-tight text-gray-800"
+          (click)="hideSidebar()"
+        >
+          <i [class]="sidebarItem.icon"></i>
+          <span class="ms-3">{{sidebarItem.label}}</span>
+        </a>
+      </li>
+    }
+  </ul>
+</p-drawer>

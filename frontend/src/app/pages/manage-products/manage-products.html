@@ -1,0 +1,479 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <div class="flex gap-6 flex-wrap justify-between">
+      <h2 class="text-2xl font-bold tracking-tight text-gray-800">
+        Gérer les produits
+      </h2>
+      @if (userType === 'admin') {
+        <p-button
+          label="Ajouter un approvisionnement en vrac"
+          severity="success"
+          [disabled]="_suppliesService.supplies().length <= 0 || addSupplyLoading" [loading]="addSupplyLoading"
+          (onClick)="addBulkSupply()"
+        />
+      } @else if (userType === 'seller' && _salesService.sale()) {
+        <p-button
+          [label]="'Créer la vente'"
+          severity="success"
+          [disabled]="addSaleLoading"
+          [loading]="addSaleLoading"
+          (onClick)="addNewSale('sales')"
+        />
+      } @else if (userType === 'delivery' && _salesService.sale()) {
+        <p-button
+          [label]="'Créer la commande'"
+          severity="success"
+          [disabled]="addOrderLoading"
+          [loading]="addOrderLoading"
+          (onClick)="addNewOrder()"
+        />
+      } @else if (userType === 'instant') {
+        @if(_salesService.sale()) {
+          <p-button
+            label="Créer la vente"
+            severity="success"
+            (onClick)="addNewSale('instant-sales')"
+            [loading]="addSaleLoading"
+            [disabled]="addSaleLoading"
+          />
+        } @else {
+          <p-button
+            label="Ajouter une nouvelle vente"
+            severity="info"
+            (onClick)="pickSaleDateDialog($event)"
+          />
+        }
+      }
+    </div>
+
+    <div class="mt-10 flex flex-col md:flex-row gap-6">
+      <div class="w-full md:w-1/2">
+        <label for="productName" class="block text-sm/6 font-medium text-gray-900">
+          Filtrer par nom de produit
+        </label>
+        <div class="mt-2">
+          <input
+            pInputText
+            id="productName"
+            type="search"
+            [(ngModel)]="nameSearch"
+            class="w-full"
+            autocomplete="productName"
+          />
+        </div>
+      </div>
+      <div class="w-full md:w-1/2">
+        <label class="block text-sm/6 font-medium text-gray-900">
+          Filtrer par catégorie de produit
+        </label>
+        <div class="mt-2">
+          <p-select
+            [options]="categories()"
+            [(ngModel)]="categoryFilter"
+            [showClear]="true"
+            emptyMessage="Aucun résultat trouvé"
+            optionLabel="name"
+            optionValue="_id"
+            placeholder="Choisir la catégorie"
+            class="w-full"
+            [loading]="loadingCategories"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-10">
+      <p-dataview #dv
+        [value]="products()"
+        [emptyMessage]="loadingProducts ? 'Chargement des produits, veuillez patienter' : 'Aucun résultat trouvé'"
+      >
+        <ng-template #list let-products>
+          <div class="grid grid-cols-12 gap-y-4 grid-nogutter">
+            <div
+              class="col-span-12"
+              *ngFor="let product of products; let first = first"
+            >
+              <div
+              class="flex flex-col sm:flex-row sm:items-center p-4 md:p-6 gap-4 bg-slate-100 rounded-md border-none"
+              [class.bg-green-50!]="alreadyAddedProduct(product._id)"
+                [ngClass]="{ 'border-t border-surface-200 dark:border-surface-700': !first }">
+                <div class="md:w-40 relative overflow-hidden">
+                    <img
+                      [src]="product.pictureUrl.url"
+                      [alt]="product.name"
+                      class="block rounded-md w-full"
+                    />
+                  <p-tag [value]="'stock actuel: ' + product.currentStock" [severity]="getSeverity(product.currentStock)" class="absolute dark:!bg-surface-900"
+                    [style.left.px]="4" [style.top.px]="4" />
+                </div>
+                <div class="flex flex-col md:flex-row justify-between md:items-center flex-1 gap-6">
+                  <div class="flex flex-row md:flex-col justify-between items-start gap-2">
+                    <div>
+                      <span class="font-medium text-secondary text-sm">
+                        {{product.categoryId.name}}
+                      </span>
+                      <div class="text-lg font-medium text-surface-900 dark:text-surface-0 mt-2">{{ product.name }}</div>
+                    </div>
+                    @if (product.nextExpiryDate) {
+                      <div class="bg-surface-100 dark:bg-surface-700 p-1" style="border-radius: 30px">
+                        <div class="bg-surface-0 dark:bg-surface-900 flex items-center gap-2 justify-center py-1 px-2"
+                          style="border-radius: 30px; box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.04), 0px 1px 2px 0px rgba(0, 0, 0, 0.06)">
+                          <span class="text-surface-900">Expirant à: </span>
+                          <span class="text-yellow-500">
+                            {{product.nextExpiryDate | date : 'dd/MM/yyyy'}}
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <div class="flex flex-col md:items-end gap-8">
+                    <span class="text-xl font-semibold text-surface-900 dark:text-surface-0">
+                      {{product.unitPrice + ' DH'}}
+                    </span>
+                    @if (userType === 'admin') {
+                      <div class="flex flex-row-reverse md:flex-row gap-2">
+                        <p-button
+                          icon="pi pi-cart-plus"
+                          [outlined]="true"
+                          (click)="supplyDialog($event, product._id)"
+                        />
+                        <p-button
+                          icon="pi pi-pen-to-square"
+                          class="flex-auto md:flex-initial whitespace-nowrap"
+                          label="Modifier"
+                          (click)="updateDialog($event, product._id)"
+                        />
+                        <p-button
+                          icon="pi pi-trash"
+                          severity="danger"
+                          [outlined]="true"
+                          (click)="deleteConfirm($event, product._id)"
+                        />
+                      </div>
+                    } @else if (
+                      (userType === 'seller' || userType === 'instant' || userType === 'delivery')
+                      && _salesService.sale()
+                    ) {
+                      <div class="flex flex-row-reverse md:flex-row gap-2">
+                        <p-button
+                          icon="pi pi-cart-plus"
+                          [outlined]="true"
+                          (click)="saleDialog($event, product._id, product.unitPrice)"
+                        />
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </p-dataview>
+    </div>
+
+    @if (categories().length > 0) {
+      <div class="mt-10">
+        <p-paginator (onPageChange)="onPageChange($event)" [first]="(currentPage()-1) * pageSize" [rows]="pageSize"
+          [totalRecords]="totalProducts()" styleClass="p-0" />
+      </div>
+    }
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />
+
+<p-dialog
+  header="Confirmer la suppression"
+  [(visible)]="showDeleteDialog"
+  [modal]="true"
+  [closable]="!deleteLoading"
+  [dismissableMask]="!deleteLoading"
+  [style]="{ width: '350px' }"
+>
+  <p>Êtes-vous sûr de vouloir supprimer ce produit?</p>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" (click)="showDeleteDialog=false" [disabled]="deleteLoading"
+      class="p-button-text" />
+    <p-button label="Supprimer" severity="danger" (click)="onDeleteConfirmed()" [loading]="deleteLoading" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Mettre à jour le produit"
+  [(visible)]="showUpdateDialog"
+  [modal]="true"
+  [closable]="!updateLoading"
+  [dismissableMask]="!updateLoading"
+  styleClass="w-[330px] md:w-[450px]"
+  >
+  <form [formGroup]="updateProductFormData" class="space-y-6">
+    <div class="w-full">
+      <label for="image" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="image.touched && image.dirty && image.invalid">Choisir une image</label>
+      <div class="mt-2">
+        <input type="file" name="image" id="image" (change)="onFileSelected($event)"
+          [class.border-red-600!]="image.touched && image.dirty && image.invalid"
+          class="block w-full border border-slate-300 hover:border-slate-400 rounded-md text-base focus:z-10 focus:border-teal-600 focus:ring-teal-600 disabled:opacity-50 disabled:pointer-events-none file:bg-gray-50 file:border-0 file:me-4 file:py-[0.5rem] file:px-4">
+        @if(image.touched && image.dirty) {
+          @if(image.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">L'image du produit est obligatoire!</div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label for="name" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="name.touched && name.dirty && name.invalid">Nom du produit</label>
+      <div class="mt-2">
+        <input id="name" type="text" pInputText [formControl]="name" class="w-full"
+          [class.border-red-600!]="name.touched && name.dirty && name.invalid" autocomplete="name" />
+        @if(name.touched && name.dirty) {
+          @if(name.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">Le nom du produit est obligatoire!</div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="category.touched && category.dirty && category.invalid">Choisir la catégorie</label>
+      <div class="mt-2">
+        <p-select
+          [options]="categories()"
+          [formControl]="category"
+          [showClear]="true"
+          emptyMessage="Aucun résultat trouvé"
+          optionLabel="name"
+          optionValue="_id"
+          placeholder="Choisir la catégorie"
+          class="w-full"
+        />
+        @if(category.touched && category.dirty) {
+        @if(category.hasError("required")) {
+        <div class="text-red-600 text-sm mt-1">La catégorie de produit est obligatoire!</div>
+        }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label for="unitPrice" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="unitPrice.touched && unitPrice.dirty && unitPrice.invalid">Le prix unitaire</label>
+      <div class="mt-2">
+        <input id="unitPrice" type="number" pInputText [formControl]="unitPrice" class="w-full"
+          [class.border-red-600!]="unitPrice.touched && unitPrice.dirty && unitPrice.invalid" />
+        @if(unitPrice.touched && unitPrice.dirty) {
+        @if(unitPrice.hasError("required")) {
+        <div class="text-red-600 text-sm mt-1">
+          Le prix unitaire est obligatoire!
+        </div>
+        } @else if(unitPrice.hasError("min")) {
+        <div class="text-red-600 text-sm mt-1">
+          Le prix unitaire doit être un nombre positif!
+        </div>
+        }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label for="minQty" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="minQty.touched && minQty.dirty && minQty.invalid">
+        La quantité minimale pour la remise
+      </label>
+      <div class="mt-2">
+        <input id="minQty" type="number" pInputText [formControl]="minQty" class="w-full"
+          [class.border-red-600!]="minQty.touched && minQty.dirty && minQty.invalid" />
+        @if(minQty.touched && minQty.dirty) {
+        @if(minQty.hasError("required")) {
+        <div class="text-red-600 text-sm mt-1">
+          la quantité minimale pour la remise est obligatoire!
+        </div>
+        } @else if(minQty.hasError("min")) {
+        <div class="text-red-600 text-sm mt-1">
+          La quantité minimale pour la remise doit être d'au moins 1!
+        </div>
+        }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label for="percent" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="percent.touched && percent.dirty && percent.invalid">
+        Le pourcentage de remise
+      </label>
+      <div class="mt-2">
+        <input id="percent" type="number" pInputText [formControl]="percent" class="w-full"
+          [class.border-red-600!]="percent.touched && percent.dirty && percent.invalid" />
+        @if(percent.touched && percent.dirty) {
+          @if(percent.hasError("min") || percent.hasError("max")) {
+            <div class="text-red-600 text-sm mt-1">
+              Le pourcentage de remise doit être compris entre 0 et 100!
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label for="globalDiscountPercent" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="globalDiscountPercent.touched && globalDiscountPercent.dirty && globalDiscountPercent.invalid">
+        Pourcentage de remise globale
+      </label>
+      <div class="mt-2">
+        <input
+          id="globalDiscountPercent"
+          type="number"
+          pInputText
+          [formControl]="globalDiscountPercent"
+          class="w-full"
+          [class.border-red-600!]="globalDiscountPercent.touched && globalDiscountPercent.dirty && globalDiscountPercent.invalid"
+        />
+        @if(globalDiscountPercent.touched && globalDiscountPercent.dirty) {
+          @if(globalDiscountPercent.hasError("min") ||
+           globalDiscountPercent.hasError("max")) {
+            <div class="text-red-600 text-sm mt-1">
+              Le pourcentage de remise globale doit être compris entre 0 et 100
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" (click)="showUpdateDialog=false" [disabled]="updateLoading" class="p-button-text" />
+    <p-button label="Modifier" severity="danger" (click)="onUpdateConfirmed()" [loading]="updateLoading" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Ajouter un approvisionnement en vrac"
+  [(visible)]="showSupplyDialog"
+  [modal]="true"
+  styleClass="w-[330px] md:w-[450px] overflow-auto"
+  [contentStyle]="{'overflow':'visible'}"
+>
+  <form [formGroup]="supplyFormData" class="space-y-6">
+    <div class="w-full">
+      <label for="expiringAt" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="expiringAt.touched && expiringAt.dirty && expiringAt.invalid">
+        Choisir la date d'expiration
+      </label>
+      <div class="mt-2">
+        <p-datepicker [appendTo]="'body'" [formControl]="expiringAt" id="expiringAt" styleClass="w-full" dateFormat="yy-mm-dd" />
+        @if(expiringAt.touched && expiringAt.dirty) {
+          @if(expiringAt.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">La date d'expiration est obligatoire!</div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="w-full">
+      <label for="quantity" class="block text-sm/6 font-medium text-gray-900"
+        [class.text-red-600!]="quantity.touched && quantity.dirty && quantity.invalid">
+        La quantité de produitt
+      </label>
+      <div class="mt-2">
+        <input id="quantity" type="number" pInputText [formControl]="quantity" class="w-full"
+          [class.border-red-600!]="quantity.touched && quantity.dirty && quantity.invalid" autocomplete="quantity" />
+          @if(quantity.touched && quantity.dirty) {
+            @if(quantity.hasError("min")) {
+              <div class="text-red-600 text-sm mt-1">
+                Chaque entrée d'approvisionnement doit avoir une quantité > 0
+              </div>
+            }
+          }
+      </div>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" severity="info" (click)="showSupplyDialog=false" class="p-button-text" />
+    <p-button label="Sauvegarder" severity="success" (click)="onSupplyConfirmed()" />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Ajouter une nouvelle vente"
+  [(visible)]="showPickSaleDateDialog"
+  [modal]="true"
+  styleClass="w-[330px] md:w-[450px] overflow-auto"
+  [contentStyle]="{'overflow':'visible'}"
+>
+  <div class="space-y-6">
+    <div class="w-full">
+      <label for="saleDate" class="block text-sm/6 font-medium text-gray-900">
+        Quand le veut-il?
+      </label>
+      <div class="mt-2">
+        <div class="card flex justify-center">
+          <p-datepicker
+            id="saleDate"
+            [(ngModel)]="saleDate"
+            styleClass="w-full"
+            dateFormat="yy-mm-dd"
+            [appendTo]="'body'"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+  <ng-template pTemplate="footer" class="pt-4">
+    <p-button
+      label="Annuler"
+      (click)="showPickSaleDateDialog=false"
+      class="p-button-text"
+    />
+    <p-button
+      label="Ajouter une vente"
+      severity="danger"
+      (click)="onPickSaleDateConfirmed()"
+    />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Détails du produit"
+  [(visible)]="showSaleDialog"
+  [modal]="true"
+  styleClass="w-[330px] md:w-[450px] overflow-auto"
+  [contentStyle]="{'overflow':'visible'}"
+  *ngIf="showSaleDialog"
+>
+  <div class="space-y-6">
+    <div class="flex-auto">
+      <div class="mb-2 flex justify-between items-center">
+        <label class="block font-bold" for="quantityToSale">
+          {{userType === 'seller' ? 'La quantité à vendre' : 'La quantité commandée'}}
+        </label>
+        <span>{{salePrice()}} DH</span>
+      </div>
+      <p-inputnumber
+        [ngModel]="quantityToSale()"
+        (ngModelChange)="quantityToSale.set($event);
+            changePriceBasedQuantity()"
+        [showButtons]="true"
+        buttonLayout="horizontal"
+        spinnerMode="horizontal"
+        inputId="quantityToSale"
+        [inputStyle]="{ width: '3rem' }"
+        class="w-full"
+      >
+        <ng-template #incrementbuttonicon>
+          <span class="pi pi-plus"></span>
+        </ng-template>
+        <ng-template #decrementbuttonicon>
+          <span class="pi pi-minus"></span>
+        </ng-template>
+      </p-inputnumber>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Annuler" severity="info" (click)="showSaleDialog=false" class="p-button-text" />
+    <p-button label="Sauvegarder" severity="success" (click)="onSaleConfirmed()" />
+  </ng-template>
+</p-dialog>

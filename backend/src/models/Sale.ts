@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import User from './User.js';
 
 interface ILineItem {
   productId: Types.ObjectId;
@@ -42,7 +43,7 @@ const saleSchema = new Schema<ISale>(
   {
     saleNumber: { type: String, required: true, unique: true },
     date: { type: Date, default: () => new Date() },
-    client: { type: Schema.Types.ObjectId, ref: 'Client', required: true },
+    client: { type: Schema.Types.ObjectId, ref: 'Client' },
     seller: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     deliveryMan: { type: Schema.Types.ObjectId, ref: 'User' },
     items: { type: [lineItem], required: true },
@@ -68,5 +69,15 @@ const saleSchema = new Schema<ISale>(
   },
   { timestamps: true },
 );
+
+saleSchema.pre<ISale>('validate', async function () {
+  const user = await User.findById(this.seller).select('role');
+  if (user?.role === 'seller' && !this.client) {
+    this.invalidate(
+      'client',
+      'Client is required when seller has role "seller".',
+    );
+  }
+});
 
 export default model<ISale>('Sale', saleSchema);

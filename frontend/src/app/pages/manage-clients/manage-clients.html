@@ -1,0 +1,412 @@
+
+<section>
+  <div class="mx-auto max-w-screen-xl flex min-h-full flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <h2 class="text-2xl font-bold tracking-tight text-gray-800 text-center">
+      Gérer les clients
+    </h2>
+
+    <div class="mt-10 flex flex-col md:flex-row gap-6">
+      <div class="w-full md:w-1/3">
+        <label for="clientNumber" class="block text-sm/6 font-medium text-gray-900">
+          Filtrer par numéro de client
+        </label>
+        <div class="mt-2">
+          <input
+            pInputText
+            id="clientNumber"
+            type="search"
+            [(ngModel)]="clientNumberSearch"
+            class="w-full"
+            autocomplete="clientNumber"
+          />
+        </div>
+      </div>
+      @if (user.role === 'seller') {
+        <div class="w-full md:w-1/3">
+          <label class="block text-sm/6 font-medium text-gray-900">
+            Filtrer par La ville du client
+          </label>
+          <div class="mt-2">
+            <p-select [options]="cities()" [(ngModel)]="cityFilter" [showClear]="true" emptyMessage="Aucun résultat trouvé"
+              optionLabel="name" optionValue="_id" placeholder="Choisir la ville" class="w-full" [loading]="loadingCities"
+              (onChange)="onChangeCity()" (onClear)="onClear()"/>
+          </div>
+        </div>
+      }
+      <div class="w-full md:w-1/3">
+        <label class="block text-sm/6 font-medium text-gray-900">
+          Filtrer par le secteur du client
+        </label>
+        <div class="mt-2">
+          <p-select
+            [options]="sectorsToFilter()"
+            [(ngModel)]="sectorFilter"
+            [showClear]="true"
+            emptyMessage="Aucun résultat trouvé"
+            optionLabel="name"
+            optionValue="_id"
+            placeholder="Choisir le secteur"
+            class="w-full"
+            (onChange)="onChangeSector()"
+            (onClear)="onClear()"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-10">
+      <p-dataview #dv
+        [value]="clients()"
+        [emptyMessage]="loadingClients ? 'Chargement des clients, veuillez patienter' : 'Aucun résultat trouvé'"
+      >
+        <ng-template #list let-clients>
+          <div class="grid grid-cols-12 gap-y-4 grid-nogutter">
+            <div class="col-span-12" *ngFor="let client of clients; let first = first">
+              <div class="flex flex-col sm:flex-row sm:items-center p-4 md:p-6 gap-4 bg-slate-100 rounded-md border-none"
+                [ngClass]="{ 'border-t border-surface-200 dark:border-surface-700': !first }">
+                <div class="md:w-40 relative overflow-hidden">
+                  <img [src]="client.placePicUrl.url" [alt]="client.name" class="block rounded-md w-full" />
+                  <p-tag
+                    [value]="client.typeOfBusiness.split(' ')[0]"
+                    [severity]="'info'"
+                    class="absolute dark:!bg-surface-900"
+                    [style.left.px]="4"
+                    [style.top.px]="4"
+                  />
+                </div>
+                <div class="flex flex-col md:flex-row justify-between md:items-center flex-1 gap-6">
+                  <div class="flex flex-col justify-between items-start gap-2">
+                    <div>
+                      <span class="font-medium text-secondary text-sm">
+                        {{client.location}}
+                      </span>
+                      <div class="text-lg font-medium text-surface-900 dark:text-surface-0 mt-2">
+                        {{ client.name }}
+                      </div>
+                    </div>
+                    <div class="bg-surface-100 dark:bg-surface-700 p-1" style="border-radius: 30px">
+                      <div
+                        class="bg-surface-0 dark:bg-surface-900 flex items-center gap-2 justify-center py-1 px-2"
+                        style="border-radius: 30px; box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.04), 0px 1px 2px 0px rgba(0, 0, 0, 0.06)"
+                      >
+                        <span class="text-yellow-500" [title]="client.clientNumber">
+                          {{client.clientNumber}}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col md:items-end gap-6">
+                    @if (user.role === 'seller') {
+                      <span class="text-xl font-semibold text-surface-900 dark:text-surface-0">
+                        {{ client.deliveryMan.username }} (livreur)
+                      </span>
+                      <div class="flex flex-row-reverse md:flex-row gap-2">
+                        <p-button
+                          icon="pi pi-cart-plus"
+                          [outlined]="true"
+                          (onClick)="saleDialog($event, client._id)"
+                        />
+                        <p-button icon="pi pi-pen-to-square" class="flex-auto md:flex-initial whitespace-nowrap" label="Modifier"
+                          (click)="updateDialog($event, client._id)" />
+                        <p-button icon="pi pi-trash" severity="danger" [outlined]="true" (click)="deleteConfirm($event, client._id)" />
+                      </div>
+                    } @else if (user.role === 'delivery') {
+                      <span class="text-base font-semibold text-surface-900">
+                        {{ client.seller.username }} (vendeur)
+                      </span>
+                      <!-- <span class="text-base font-semibold text-surface-900">
+                        {{ client.phoneNumber }} (client)
+                      </span> -->
+                      <div class="flex flex-row-reverse md:flex-row gap-2">
+                        <p-button
+                          icon="pi pi-cart-plus"
+                          [outlined]="true"
+                          (onClick)="saleDialog($event, client._id)"
+                        />
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </p-dataview>
+    </div>
+
+    @if (clients().length > 0) {
+      <div class="mt-10">
+        <p-paginator
+          (onPageChange)="onPageChange($event)"
+          [first]="(currentPage()-1) * pageSize"
+          [rows]="pageSize"
+          [totalRecords]="totalClients()"
+          styleClass="p-0"
+        />
+      </div>
+    }
+  </div>
+</section>
+
+<p-toast [breakpoints]="{ '576px': { width: 'calc(100% - 30px)', right: '0', left: '15px' } }" />
+
+<p-dialog
+  header="Confirmer la suppression"
+  [(visible)]="showDeleteDialog"
+  [modal]="true"
+  [closable]="!deleteLoading"
+  [dismissableMask]="!deleteLoading"
+  [style]="{ width: '350px' }"
+>
+  <p>Êtes-vous sûr de vouloir supprimer ce client?</p>
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Annuler"
+      (click)="showDeleteDialog=false"
+      [disabled]="deleteLoading"
+      class="p-button-text"
+    />
+    <p-button
+      label="Supprimer"
+      severity="danger"
+      (click)="onDeleteConfirmed()"
+      [loading]="deleteLoading"
+    />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  header="Mettre à jour le client"
+  [(visible)]="showUpdateDialog"
+  [modal]="true"
+  [closable]="!updateLoading"
+  [dismissableMask]="!updateLoading"
+  styleClass="w-[330px] md:w-[450px]"
+>
+  <form [formGroup]="updateClientFormData" class="space-y-6">
+      <div class="w-full">
+        <label
+          for="image"
+          class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="image.touched && image.dirty && image.invalid"
+        >
+          Choisir une image
+        </label>
+        <div class="mt-2">
+          <input
+            type="file"
+            name="image"
+            id="image"
+            (change)="onFileSelected($event)"
+            [class.border-red-600!]="image.touched && image.dirty && image.invalid"
+            class="block w-full border border-slate-300 hover:border-slate-400 rounded-md text-base focus:z-10 focus:border-teal-600 focus:ring-teal-600 disabled:opacity-50 disabled:pointer-events-none file:bg-gray-50 file:border-0 file:me-4 file:py-[0.5rem] file:px-4"
+          >
+          @if(image.touched && image.dirty) {
+            @if(image.hasError("required")) {
+              <div class="text-red-600 text-sm mt-1">L'image du client est obligatoire!</div>
+            }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label
+          for="name"
+          class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="name.touched && name.dirty && name.invalid"
+        >
+          Le nom du client
+        </label>
+        <div class="mt-2">
+          <input id="name" type="text" pInputText [formControl]="name" class="w-full"
+            [class.border-red-600!]="name.touched && name.dirty && name.invalid" autocomplete="name" />
+          @if(name.touched && name.dirty) {
+            @if(name.hasError("required")) {
+            <div class="text-red-600 text-sm mt-1">Le nom du client est obligatoire!</div>
+            }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="location.touched && location.dirty && location.invalid">
+          L'emplacement du client
+        </label>
+        <div class="mt-2">
+          <input id="location" type="text" pInputText [formControl]="location" class="w-full"
+            [class.border-red-600!]="location.touched && location.dirty && location.invalid" autocomplete="location" />
+          @if(location.touched && location.dirty) {
+          @if(location.hasError("required")) {
+          <div class="text-red-600 text-sm mt-1">L'emplacement du client est est obligatoire!</div>
+          }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label for="phoneNumber" class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="phoneNumber.touched && phoneNumber.dirty && phoneNumber.invalid">
+          Le numéro de téléphone
+        </label>
+        <div class="mt-2">
+          <input id="phoneNumber" type="string" pInputText [formControl]="phoneNumber" class="w-full"
+            [class.border-red-600!]="phoneNumber.touched && phoneNumber.dirty && phoneNumber.invalid" />
+          @if(phoneNumber.touched && phoneNumber.dirty) {
+          @if(phoneNumber.hasError("required")) {
+          <div class="text-red-600 text-sm mt-1">
+            Le numéro de téléphone est obligatoire!
+          </div>
+          } @else if(phoneNumber.hasError("pattern")) {
+          <div class="text-red-600 text-sm mt-1">
+            Le numéro de téléphone n'est pas valide!
+          </div>
+          }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="city.touched && city.dirty && city.invalid">Choisissez la ville
+        </label>
+        <div class="mt-2">
+          <p-select [options]="cities()" [formControl]="city" [showClear]="false" emptyMessage="Aucun résultat trouvé"
+            optionLabel="name" optionValue="_id" placeholder="Choisissez la ville" class="w-full" [loading]="loadingCities"
+            (onChange)="onChangeCityToUpdate()" />
+          @if(city.touched && city.dirty) {
+          @if(city.hasError("required")) {
+          <div class="text-red-600 text-sm mt-1">
+            La ville du client est obligatoire!
+          </div>
+          }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="sector.touched && sector.dirty && sector.invalid">
+          Choisissez le secteur
+        </label>
+        <div class="mt-2">
+          <p-select [options]="sectorsToUpdate()" [formControl]="sector" [showClear]="false" emptyMessage="Aucun résultat trouvé"
+            optionLabel="name" optionValue="_id" placeholder="Choisissez le secteur" class="w-full" />
+          @if(sector.touched && sector.dirty) {
+          @if(sector.hasError("required")) {
+          <div class="text-red-600 text-sm mt-1">
+            Le secteur du client est obligatoire!
+          </div>
+          }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="deliveryMan.touched && deliveryMan.dirty && deliveryMan.invalid">
+          Choisissez le livreur qui servira le client
+        </label>
+        <div class="mt-2">
+          <p-select [options]="deliveries()" [formControl]="deliveryMan" [showClear]="true"
+            emptyMessage="Aucun résultat trouvé" optionLabel="username" optionValue="_id" placeholder="Choisissez le livreur" class="w-full"
+            [loading]="loadingDeliveries" />
+          @if(deliveryMan.touched && deliveryMan.dirty) {
+            @if(deliveryMan.hasError("required")) {
+              <div class="text-red-600 text-sm mt-1">
+                Le livreur qui servira le client est est obligatoire!
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <div class="w-full">
+        <label for="typeOfBusiness" class="block text-sm/6 font-medium text-gray-900"
+          [class.text-red-600!]="typeOfBusiness.touched && typeOfBusiness.dirty && typeOfBusiness.invalid">
+          Le type d'entreprise du client
+        </label>
+        <div class="mt-2">
+          <input id="typeOfBusiness" type="text" pInputText [formControl]="typeOfBusiness" class="w-full"
+            [class.border-red-600!]="typeOfBusiness.touched && typeOfBusiness.dirty && typeOfBusiness.invalid" />
+          @if(typeOfBusiness.touched && typeOfBusiness.dirty) {
+          @if(typeOfBusiness.hasError("required")) {
+          <div class="text-red-600 text-sm mt-1">
+            Le type d'entreprise du client est obligatoire!
+          </div>
+          }
+          }
+        </div>
+      </div>
+  </form>
+  <ng-template pTemplate="footer" class="pt-4">
+    <p-button
+      label="Annuler"
+      (click)="showUpdateDialog=false"
+      [disabled]="updateLoading"
+      class="p-button-text"
+    />
+    <p-button
+      label="Modifier"
+      severity="danger"
+      (click)="onUpdateConfirmed()"
+      [loading]="updateLoading"
+    />
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [header]="user.role === 'seller' ?
+  'Ajouter une nouvelle vente' :
+  'Ajouter une nouvelle commande'"
+  [(visible)]="showSaleDialog"
+  [modal]="true"
+  styleClass="w-[330px] md:w-[450px] overflow-auto"
+  [contentStyle]="{'overflow':'visible'}"
+>
+  <div class="space-y-6">
+    <div class="w-full">
+      <label for="client" class="block text-sm/6 font-medium text-gray-900">
+        Le client
+      </label>
+      <div class="mt-2">
+        <input pInputText
+          readonly
+          id="client"
+          type="text"
+          [value]="targetClient()?.clientNumber +
+          ' - ' + targetClient()?.name +
+          ' - ' + targetClient()?.city?.name + '(' + targetClient()?.sector?.name + ')'"
+          class="w-full"
+        />
+      </div>
+    </div>
+    <div class="w-full">
+      <label
+        for="wantedDate"
+        class="block text-sm/6 font-medium text-gray-900"
+      >
+        Quand le veut-il?
+      </label>
+      <div class="mt-2">
+        <div class="card flex justify-center">
+        <p-datepicker
+          id="wantedDate"
+          [(ngModel)]="wantedDate"
+          styleClass="w-full"
+          dateFormat="yy-mm-dd"
+          [appendTo]="'body'"
+        />
+        </div>
+      </div>
+    </div>
+  </div>
+  <ng-template pTemplate="footer" class="pt-4">
+    <p-button label="Annuler"  (click)="showSaleDialog=false" class="p-button-text" />
+    <p-button
+      [label]="user.role === 'seller' ? 'Ajouter une vente' : 'Ajouter une commande'"
+      severity="danger"
+      (click)="onSaleConfirmed()"
+    />
+  </ng-template>
+</p-dialog>
